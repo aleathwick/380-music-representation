@@ -285,6 +285,8 @@ def pitchB2pitchM(pitchM):
     """Maps notes from [0, 87] to midi numbers"""
     return pitchM + 21 # lowest A is 21
 
+def hi():
+    print('hi')
 
 def sec2twinticks(time_s, major_ms=600, minor_ms=10, max_major=9):
     """Maps seconds to a major and a minor tick
@@ -298,11 +300,11 @@ def sec2twinticks(time_s, major_ms=600, minor_ms=10, max_major=9):
     Assumes that max size of minor tick is one increment less than length of a major tick.
 
     Default bins work as follows:
-    60 * 10ms minor ticks, 10 * 600ms major ticks, 5990ms possible
-    590ms largest minor tick
+    10 * 600ms major ticks, 60 * 10ms minor ticks, 5990ms possible
     5400ms largest major tick
+    590ms largest minor tick
     Durations will likely be as follows:
-    30 * 20ms, 18 * 600ms major ticks, 10780ms possible
+    18 * 600ms major ticks, 30 * 20ms minor ticks, 10780ms possible
     580ms largest minor tick
     10200ms largest major tick
     """
@@ -314,7 +316,7 @@ def sec2twinticks(time_s, major_ms=600, minor_ms=10, max_major=9):
     # how many small bins are now left
     small_bins = small_bins - int((big_bins * major_ms / minor_ms))
 
-    return (big_bins, small_bins)
+    return (int(big_bins), int(small_bins))
 
 
 def twinticks2sec(major_tick, minor_tick, major_ms=600, minor_ms=10):
@@ -353,13 +355,13 @@ def pm2note_bin(pm):
 
         # time shift: get the tuple of two bins
         shift = note.start - last_start
-        shiftB = sec2twinticks(shift, major_ms=1000, minor_ms=10)
+        shiftB = sec2twinticks(shift, major_ms=600, minor_ms=10)
 
         last_start = note.start
 
         # duration: get the tuple of two bins
         duration = note.end - note.start
-        durationB = sec2twinticks(duration, major_ms=1000, minor_ms=10, max_major=17)
+        durationB = sec2twinticks(duration, major_ms=600, minor_ms=20)
 
         velocityB = rebin(note.velocity, a=128, b=32)
 
@@ -387,9 +389,8 @@ def note_bin2pm(note_bin):
     for noteB in note_bin:
         velocityM = rebin(noteB[velocity], 32, 128)
         pitchM = pitchB2pitchM(noteB[pitch])
-        current_time += twinticks2sec(noteB[shift_major], noteB[shift_minor], major_ms=1000, minor_ms=10)
-        duration = twinticks2sec(noteB[duration_major], noteB[duration_minor], major_ms=1000, minor_ms=10)
-        print(duration)
+        current_time += twinticks2sec(noteB[shift_major], noteB[shift_minor], major_ms=600, minor_ms=10)
+        duration = twinticks2sec(noteB[duration_major], noteB[duration_minor], major_ms=600, minor_ms=20)
         end = current_time + duration
 
         noteM = pretty_midi.Note(velocityM, pitchM, current_time, end)

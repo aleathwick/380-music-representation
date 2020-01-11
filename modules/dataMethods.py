@@ -7,8 +7,7 @@ import tensorflow as tf
 from tensorflow.keras.utils import to_categorical
 data_path = 'F:\Google Drive\Study\Machine Learning\Datasets\MaestroV2.00\maestro-v2.0.0/'
 
-
-
+### notes for adding period numbers:
 # print(maestro.head)
 # print(maestro['canonical_composer'].unique())
 
@@ -29,6 +28,8 @@ def add_period_numbers(df):
     # 3 = roughly romantic
     # 4 = roughly 20th century
 
+    Roughly 200 baroque, 200 classical, 800 romantic, not many 20th century
+
     """
     #here is the list of periods, in order of composers
     periods = [4,3,3,2,2,3,4,3,1,3,3,3,3,3,3,3,3,3,3,3,2,3,3,3,3,3,1,3,3,1,2,1,1,1,3,3,1,3,3,2,3,2,3,3,3,2,3,3,3,1,3,3,3,3,3,3,3,3,3,3,2]
@@ -42,7 +43,7 @@ def add_period_numbers(df):
     # maestro['period'] = maestro['canonical_composer'].map(periods_dict)
 
 
-def get_processed_data(data_path, skip = 50, print_cut_events=False, n = 8, n_events=256):
+def get_processed_oore_data(data_path, skip = 50, print_cut_events=True, n = 8, n_events=256):
     """Reads in midi files, converts to oore, splits into training examples
     
     Parameters:
@@ -123,6 +124,103 @@ def get_processed_data(data_path, skip = 50, print_cut_events=False, n = 8, n_ev
         print('too_short: ', too_short)
 
     return (X, Y, X_val, Y_val, n_events)
+
+
+def get_processed_note_bin_data(data_path, skip = 300, print_cut_events=True, n_test = 8, n_notes=128):
+    """Reads in midi files, converts to oore, splits into training examples
+    
+    Arguments:
+    data_path -- str, path to the data directory, where all the midi files are
+    skip -- int that says 'take every nth file', controls number of files in between those taken
+    print_cut_events -- bool: If true, then lists of numbers of discarded events will be printed, that didn't make the training examples, because they
+        would have made the example too long, or they weren't long enough to form an example. 
+    n -- int, sends every nth training example to the test set
+    n_events -- int, no. of events per training example
+
+    Returns:
+    X -- list of training examples
+    Y -- list, essentially the same as X, but displaced by a timestep, so it can act as the truth set at each step
+    X_test -- list of test examples
+    Y_test -- list, essentially the same as X_test, but displaced by a timestep, so it can act as the truth set at each step
+    n_events -- int, number of events in a training example
+    
+    """
+    maestro = pd.read_csv('training_data/maestro-v2.0.0withPeriod.csv', index_col=0)
+    filenames = list(maestro['midi_filename'])
+    #just want a selection at this stage
+    X = []
+    Y = []
+    X_test = []
+    Y_test = []
+    test_counter = 1
+    max_shift = 10
+    max_duration = 18
+    shifts_exceeded = 0
+    durations_exceeded = 0
+    # We'll check how many events have to be discarded because they're longer than target sequence length
+    leftover = []
+    # And we'll check too how many sequences are too short
+    too_short = []
+    # iterate over the filenames, taking every skipth file
+    for i in range(0, len(filenames), skip):
+        pm = pretty_midi.PrettyMIDI(data_path + filenames[i])
+        sustain_only(pm)
+        desus(pm)
+        note_bin = pm2note_bin(pm)
+        # iterate over all the notes, in leaps of n_notes
+        example_length = len(note_bin)
+        print('################# new example! Of length ' + str(example_length))
+        for i in range(0, len(note_bin), n_notes):
+            # print('new 100, index ' + str(i))
+            # print(len(note_bin[i:]))
+            # check there are enough notes left for a training example
+            if len(note_bin[i:]) >= n_notes + 1:
+                # example, initially, has one extra note, so it can be X and Y
+                example = note_bin[i:(i+n_notes+1)]
+                # check that there are no notes that are too long, or shifted too much
+                if max([note[1] for note in example]) <= max_shift:
+                    if max([note[3] for note in example]) <= max_duration:
+                        X.append(example[:-1])
+                        Y.append(example[1:])
+                    else:
+                        durations_exceeded += 1
+                else:
+                    print('exceeded: ' + str(max([note[1] for note in example])))
+                    shifts_exceeded +=1
+            else:
+                too_short.append(len(note_bin[i * n_notes:]))
+        if print_cut_events:
+            print('duration_exceeded: ', durations_exceeded)
+            print('shifts_exceeded: ', shifts_exceeded)
+    
+    return (X, Y, X_test, Y_test, n_notes)
+
+        
+
+        #n_notes is the number of notes to process at once
+        # n_notes = 80
+        #n_events is the number of events in a training example
+        # for i in range(n_notes, len(all_notes) - 1, n_notes):
+        #     pm.instruments[0].notes = all_notes[i - n_notes:i]
+        #     trim_silence(pm)
+        #     events = midi2oore(pm)
+        #     if len(events) >= n_events + 1:
+        #         val_counter += 1
+        #         if val_counter % n == 0:
+        #             X_val.append(events[0:n_events])
+        #             Y_val.append(events[1:n_events+1])
+        #             leftover.append(len(events) - (n_events+1))
+        #         else:
+        #             X.append(events[0:n_events])
+        #             Y.append(events[1:n_events+1])
+        #             leftover.append(len(events) - (n_events+1))
+        #     else:
+        #         too_short.append(len(events))
+
+    
+
+    
+
 
 
 def dump_pickle_data(item, filename):
