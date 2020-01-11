@@ -215,7 +215,7 @@ def pm2oore(pm):
     return events_with_shifts        
 
 
-def oore2midi(events):
+def oore2pm(events):
     """Maps from a list of event numbers back to midi.
 
     333 total possible events:
@@ -244,11 +244,14 @@ def oore2midi(events):
     current_velocity = 0
 
     for event in events:
+        # sort note ons
         if 0 <= event <= 87:
             pitch = event + 21
+            # set attributes of note, with end time as -1 for now
             note = pretty_midi.Note(current_velocity, pitch, current_time, -1)
+            # add it to notes that haven't had their note off yet
             notes_on.append(note)
-
+        # sort note offs
         elif 88 <= event <= 175:
             end_pitch = event + 21 - 88
             new_notes_on = []
@@ -259,11 +262,11 @@ def oore2midi(events):
                 else:
                     new_notes_on.append(note)
             notes_on = new_notes_on
-            
+        # sort time shifts
         elif 176 <= event <= 300:
             shift = event - 175
             current_time += (shift * 8 / 1000)
-
+        # sort velocities
         elif 301 <= event <= 332:
             rescaled_velocity = np.round((event - 301) / 31 * 127)
             current_velocity = int(rescaled_velocity)
@@ -273,18 +276,23 @@ def oore2midi(events):
     pm.instruments[0].notes = notes
     return pm
 
+
 def pitchM2pitchB(pitchM):
     """Maps midi notes to [0, 87]"""
     return pitchM - 21 # lowest A is 21
 
+def pitchB2pitchM(pitchM):
+    """Maps notes from [0, 87] to midi numbers"""
+    return pitchM + 21 # lowest A is 21
 
-def ms2twinticks(time_ms, major=600, minor=10, max_major=9):
-    """Maps ms to a major and a minor tick
+
+def sec2twinticks(time_s, major_ms=600, minor_ms=10, max_major=9):
+    """Maps seconds to a major and a minor tick
     
     Arguments:
-    time_ms -- int, time in ms to be mapped to bins
-    major -- int, increments of major ticks
-    minor -- int, increments of minor ticks
+    time_s -- int or float, time in ms to be mapped to bins
+    major_ms -- int, increments of major ticks
+    minor_ms -- int, increments of minor ticks
 
     Note:
     Assumes that max size of minor tick is one increment less than length of a major tick.
@@ -298,22 +306,25 @@ def ms2twinticks(time_ms, major=600, minor=10, max_major=9):
     580ms largest minor tick
     10200ms largest major tick
     """
-
+    time_ms = 1000 * time_s
     # how many small bins filled, if we only had small bins?
-    small_bins = round((time_ms / minor))
+    small_bins = round((time_ms / minor_ms))
     # how many big bins are completely filled by these?
-    big_bins = small_bins * minor // major
+    big_bins = small_bins * minor_ms // major_ms
     # how many small bins are now left
-    small_bins = small_bins - int((big_bins * major / minor))
+    small_bins = small_bins - int((big_bins * major_ms / minor_ms))
 
     return (big_bins, small_bins)
 
 
-def velM2velB(velocity, n_bins=32):
-    """Maps midi velocity to binned velocity in [0, n_bins - 1]"""
-    return round(velocity * (n_bins - 1)/127)
+def twinticks2sec(major_tick, minor_tick, major_ms=600, minor_ms=10):
+    """Inverts sec2twinticks"""
+    return (major_ms * major_tick + minor_ms * minor_tick) / 1000
 
 
+def rebin(bin, a=128, b=32):
+    """Maps from [0, a-1] to [0, b-1], useful for velocity"""
+    return round(bin * (b-1)/(a-1))
 
 
 def pm2note_bin(pm):
@@ -333,26 +344,59 @@ def pm2note_bin(pm):
     note_bin = []
 
     # need notes sorted by start time, not end time
-    notes = sorted(pm.instruments[0].notes, key = lambda x: x.note.start)
+    notes = sorted(pm.instruments[0].notes, key = lambda note: note.start)
     last_start = 0
     for note in notes:
-        last_start = note.start
+        
         # get the pitch bin number
         pitchB = pitchM2pitchB(note.pitch)
 
         # time shift: get the tuple of two bins
         shift = note.start - last_start
-        shiftB = ms2twinticks(shift)
+        shiftB = sec2twinticks(shift, major_ms=1000, minor_ms=10)
+
+        last_start = note.start
 
         # duration: get the tuple of two bins
         duration = note.end - note.start
-        durationB = ms2twinticks(duration, major=600, minor=20, max_major=17)
+        durationB = sec2twinticks(duration, major_ms=1000, minor_ms=10, max_major=17)
 
-        velocityB = velM2velB(note.velocity, n_bins=32)
+        velocityB = rebin(note.velocity, a=128, b=32)
 
-        note_bin.append(pitchB, shiftB[0], shiftB[1], durationB[0], durationB[1], velocityB)
+        note_bin.append([pitchB, shiftB[0], shiftB[1], durationB[0], durationB[1], velocityB])
         
     return note_bin
+
+
+def note_bin2pm(note_bin):
+    """Performs inverse function of pm2notebin"""
+
+    pm = pretty_midi.PrettyMIDI(resolution=125)
+    pm.instruments.append(pretty_midi.Instrument(0, name='piano'))
+
+    # define indexes for note_bins
+    pitch = 0
+    shift_major = 1
+    shift_minor = 2
+    duration_major = 3
+    duration_minor = 4
+    velocity = 5
+
+    current_time = 0
+
+    for noteB in note_bin:
+        velocityM = rebin(noteB[velocity], 32, 128)
+        pitchM = pitchB2pitchM(noteB[pitch])
+        current_time += twinticks2sec(noteB[shift_major], noteB[shift_minor], major_ms=1000, minor_ms=10)
+        duration = twinticks2sec(noteB[duration_major], noteB[duration_minor], major_ms=1000, minor_ms=10)
+        print(duration)
+        end = current_time + duration
+
+        noteM = pretty_midi.Note(velocityM, pitchM, current_time, end)
+        pm.instruments[0].notes.append(noteM)
+    # sort by note offs, which is how pm objects are organized
+    pm.instruments[0].notes.sort(key=lambda note: note.end)
+    return pm
 
 
 

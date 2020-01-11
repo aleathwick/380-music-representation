@@ -42,8 +42,8 @@ def add_period_numbers(df):
     # maestro['period'] = maestro['canonical_composer'].map(periods_dict)
 
 
-def get_processed_data(data_path, skip = 50, print_cut_events=False, n = 8):
-    """Reads in and processes midi files from the dataset
+def get_processed_data(data_path, skip = 50, print_cut_events=False, n = 8, n_events=256):
+    """Reads in midi files, converts to oore, splits into training examples
     
     Parameters:
     ----------
@@ -59,6 +59,9 @@ def get_processed_data(data_path, skip = 50, print_cut_events=False, n = 8):
 
     n : int
         sends every nth training example to the validation set
+
+    n_events : int
+        no. of events per training example
 
     Returns
     ----------
@@ -99,11 +102,10 @@ def get_processed_data(data_path, skip = 50, print_cut_events=False, n = 8):
         #n_notes is the number of notes to process at once
         n_notes = 80
         #n_events is the number of events in a training example
-        n_events = 256
         for i in range(n_notes, len(all_notes) - 1, n_notes):
             pm.instruments[0].notes = all_notes[i - n_notes:i]
-            zero_start_time(pm)
-            events = midi_to_events(pm)
+            trim_silence(pm)
+            events = midi2oore(pm)
             if len(events) >= n_events + 1:
                 val_counter += 1
                 if val_counter % n == 0:
