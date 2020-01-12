@@ -126,7 +126,7 @@ def get_processed_oore_data(data_path, skip = 50, print_cut_events=True, n = 8, 
     return (X, Y, X_val, Y_val, n_events)
 
 
-def get_processed_note_bin_data(data_path, skip = 300, print_cut_events=True, n_test = 8, n_notes=128):
+def files2note_bin_examples(data_path, skip = 300, print_cut_events=True, n_notes=128):
     """Reads in midi files, converts to oore, splits into training examples
     
     Arguments:
@@ -134,45 +134,34 @@ def get_processed_note_bin_data(data_path, skip = 300, print_cut_events=True, n_
     skip -- int that says 'take every nth file', controls number of files in between those taken
     print_cut_events -- bool: If true, then lists of numbers of discarded events will be printed, that didn't make the training examples, because they
         would have made the example too long, or they weren't long enough to form an example. 
-    n -- int, sends every nth training example to the test set
     n_events -- int, no. of events per training example
 
     Returns:
-    X -- list of training examples
-    Y -- list, essentially the same as X, but displaced by a timestep, so it can act as the truth set at each step
-    X_test -- list of test examples
-    Y_test -- list, essentially the same as X_test, but displaced by a timestep, so it can act as the truth set at each step
-    n_events -- int, number of events in a training example
+    X -- list of training examples, each of length n_notes + 1. X[:-1] for input, X[1:] for output.
     
     """
     maestro = pd.read_csv('training_data/maestro-v2.0.0withPeriod.csv', index_col=0)
     filenames = list(maestro['midi_filename'])
     #just want a selection at this stage
     X = []
-    Y = []
-    X_test = []
-    Y_test = []
-    test_counter = 1
-    max_shift = 10
-    max_duration = 18
+    max_shift = 9 # 10 total ticks... one of them is ZERO!
+    max_duration = 17
     shifts_exceeded = 0
     durations_exceeded = 0
     # We'll check how many events have to be discarded because they're longer than target sequence length
     leftover = []
     # And we'll check too how many sequences are too short
     too_short = []
-    # iterate over the filenames, taking every skipth file
+    # iterate over the files, taking every skipth file
     for i in range(0, len(filenames), skip):
         pm = pretty_midi.PrettyMIDI(data_path + filenames[i])
         sustain_only(pm)
         desus(pm)
         note_bin = pm2note_bin(pm)
+
         # iterate over all the notes, in leaps of n_notes
-        example_length = len(note_bin)
-        print('################# new example! Of length ' + str(example_length))
+        print('################# new example! Of length ' + str(len(note_bin)))
         for i in range(0, len(note_bin), n_notes):
-            # print('new 100, index ' + str(i))
-            # print(len(note_bin[i:]))
             # check there are enough notes left for a training example
             if len(note_bin[i:]) >= n_notes + 1:
                 # example, initially, has one extra note, so it can be X and Y
@@ -180,9 +169,9 @@ def get_processed_note_bin_data(data_path, skip = 300, print_cut_events=True, n_
                 # check that there are no notes that are too long, or shifted too much
                 if max([note[1] for note in example]) <= max_shift:
                     if max([note[3] for note in example]) <= max_duration:
-                        X.append(example[:-1])
-                        Y.append(example[1:])
+                        X.append(example)
                     else:
+                        print('exceeded: ' + str(max([note[3] for note in example])))
                         durations_exceeded += 1
                 else:
                     print('exceeded: ' + str(max([note[1] for note in example])))
@@ -190,10 +179,10 @@ def get_processed_note_bin_data(data_path, skip = 300, print_cut_events=True, n_
             else:
                 too_short.append(len(note_bin[i * n_notes:]))
         if print_cut_events:
-            print('duration_exceeded: ', durations_exceeded)
-            print('shifts_exceeded: ', shifts_exceeded)
+            print('total_durations_exceeded: ', durations_exceeded)
+            print('total_shifts_exceeded: ', shifts_exceeded)
     
-    return (X, Y, X_test, Y_test, n_notes)
+    return X
 
         
 

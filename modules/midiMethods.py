@@ -300,7 +300,7 @@ def sec2twinticks(time_s, major_ms=600, minor_ms=10, max_major=9):
     Assumes that max size of minor tick is one increment less than length of a major tick.
 
     Default bins work as follows:
-    10 * 600ms major ticks, 60 * 10ms minor ticks, 5990ms possible
+    10 * 600ms major ticks, 60 * 10ms minor ticks, 5990ms possible [INCLUDE 0 AS TICK 1]
     5400ms largest major tick
     590ms largest minor tick
     Durations will likely be as follows:

@@ -1,5 +1,5 @@
 import numpy as np
-import keras
+import tensorflow.keras
 
 class DataGenerator(keras.utils.Sequence):
     'Generates data for Keras. This is a subclass of Sequence'
