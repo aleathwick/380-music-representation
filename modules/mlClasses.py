@@ -1,54 +1,48 @@
 import numpy as np
-import tensorflow.keras
-
-class DataGenerator(keras.utils.Sequence):
+import tensorflow as tf
+def hi():
+    print('h')
+class DataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras. This is a subclass of Sequence'
-    def __init__(self, data, batch_size=64, dim=256, n_channels=1,
-                 n_classes=333, shuffle=True, n_a = 64):
+    def __init__(self, data, batch_size=64, dim=(128,6), shuffle=True):
         """Initialization
-        Note that data should be a tuple containing (X, Y)
+        Note that data should be a list of X
         """
-        self.X_data, self. Y_data = data
-        self.dim = dim #the dimension of a single example. Should it be (256, 333), the shape of a training example?
+        self.X_data = data
+        self.dim = dim #the dimension of a single example
         self.batch_size = batch_size
-        self.n_classes = n_classes
         self.shuffle = shuffle
         self.on_epoch_end()
-        self.a0 = np.zeros((batch_size, n_a))
-        self.c0 = np.zeros((batch_size, n_a))
 
     def __len__(self):
         'Denotes the number of batches per epoch'
-        return 1000
+        return len(self.X_data) // self.batch_size
 
     def __getitem__(self, index):
         'Generate one batch of data'
         # Generate indexes of the batch
         indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
 
-        # Find list of IDs
-        # list_IDs_temp = [self.list_IDs[k] for k in indexes]
-
         # Generate data
         X, Y = self.__data_generation(indexes)
         
-        return [X, self.a0, self.c0], Y
+        # Different note attribute targets are separate outputs
+        return X, [Y[:,:,i] for i in range(6)]
 
     def __data_generation(self, indexes):
         'Generates data containing batch_size samples' # X : (n_samples, Tx)
         # Initialization
-        X = np.empty((self.batch_size, self.dim))
-        Y = np.empty((self.batch_size, self.dim)) #I think this is right...? Because I'll use sparse categorical cross entropy.
+        X = np.empty((self.batch_size,) + self.dim)
+        Y = np.empty((self.batch_size,) + self.dim) #I think this is right...? Because I'll use sparse categorical cross entropy.
 
         # Generate data
         for i, index in enumerate(indexes):
-            # Store sample
-            X[i,] = self.X_data[index]
+            # Store sample, leaving off the last time step
+            X[i,:,:] = self.X_data[index][:-1]
+            # Store expected output, i.e. leave off the first time step
+            Y[i,:,:] = self.X_data[index][1:]
 
-            # Store expected output
-            Y[i,] = self.Y_data[index]
-
-        return X, list(Y.transpose(1,0))
+        return X, Y
     
     def on_epoch_end(self):
         'Updates indexes after each epoch'
@@ -57,7 +51,7 @@ class DataGenerator(keras.utils.Sequence):
             np.random.shuffle(self.indexes)
 
 
-class RiggedDataGenerator(keras.utils.Sequence):
+class RiggedDataGenerator(tf.keras.utils.Sequence):
     'Generates RIGGED  data for Keras. This is a subclass of Sequence'
     def __init__(self, batch_size=64, dim=256, n_channels=1,
                  n_classes=333, shuffle=True, n_a = 64):
@@ -100,7 +94,7 @@ class RiggedDataGenerator(keras.utils.Sequence):
         if self.shuffle == True:
             np.random.shuffle(self.indexes)
 
-class DataGenerator_onehot(keras.utils.Sequence):
+class DataGenerator_onehot(tf.keras.utils.Sequence):
     'Generates data for Keras'
     def __init__(self, data, batch_size=8, dim=(256,333), n_channels=1,
                  n_classes=333, shuffle=True):
@@ -157,7 +151,7 @@ class DataGenerator_onehot(keras.utils.Sequence):
 
         return X, Y.transpose(1,0,2)
 
-class MySequence(keras.utils.Sequence): # https://stackoverflow.com/questions/51057123/keras-one-hot-encoding-memory-management-best-possible-way-out
+class MySequence(tf.keras.utils.Sequence): # https://stackoverflow.com/questions/51057123/keras-one-hot-encoding-memory-management-best-possible-way-out
   def __init__(self, data, batch_size = 16):
     self.X = data[0]
     self.Y = data[1]

@@ -142,6 +142,8 @@ def files2note_bin_examples(data_path, skip = 300, print_cut_events=True, n_note
     """
     maestro = pd.read_csv('training_data/maestro-v2.0.0withPeriod.csv', index_col=0)
     filenames = list(maestro['midi_filename'])
+    n_files = len(filenames)
+    file_n = 0
     #just want a selection at this stage
     X = []
     max_shift = 9 # 10 total ticks... one of them is ZERO!
@@ -160,7 +162,8 @@ def files2note_bin_examples(data_path, skip = 300, print_cut_events=True, n_note
         note_bin = pm2note_bin(pm)
 
         # iterate over all the notes, in leaps of n_notes
-        print('################# new example! Of length ' + str(len(note_bin)))
+        file_n += 1
+        print('######## Example no.', file_n, 'of', n_files, ', length ' + str(len(note_bin)))
         for i in range(0, len(note_bin), n_notes):
             # check there are enough notes left for a training example
             if len(note_bin[i:]) >= n_notes + 1:
@@ -171,10 +174,10 @@ def files2note_bin_examples(data_path, skip = 300, print_cut_events=True, n_note
                     if max([note[3] for note in example]) <= max_duration:
                         X.append(example)
                     else:
-                        print('exceeded: ' + str(max([note[3] for note in example])))
+                        # print('exceeded: ' + str(max([note[3] for note in example])))
                         durations_exceeded += 1
                 else:
-                    print('exceeded: ' + str(max([note[1] for note in example])))
+                    # print('exceeded: ' + str(max([note[1] for note in example])))
                     shifts_exceeded +=1
             else:
                 too_short.append(len(note_bin[i * n_notes:]))
