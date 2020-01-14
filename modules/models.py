@@ -3,7 +3,6 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow.keras import layers
 
-
 def create_model1(hidden_state_size = 128, seq_length = 128, batch_size=128, stateful = False,
     vocab={"pitch":88, "shift_M":10, "shift_m":60, "duration_M":18, "duration_m":30, "velocity":32}):
     """creates a simple model
@@ -22,7 +21,7 @@ def create_model1(hidden_state_size = 128, seq_length = 128, batch_size=128, sta
     # velocity = tf.keras.Input(shape=(128,))
 
     # inputs = [pitch, shift_M, shift_m, duration_M, duration_m, velocity]
-    if stateful==True:
+    if stateful:
         inputs = tf.keras.Input(batch_shape=(batch_size,seq_length,6))
     else:
         inputs = tf.keras.Input(shape=(seq_length,6))
