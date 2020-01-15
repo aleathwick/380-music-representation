@@ -125,6 +125,11 @@ def get_processed_oore_data(data_path, skip = 50, print_cut_events=True, n = 8, 
 
     return (X, Y, X_val, Y_val, n_events)
 
+def stretch(pm, speed):
+    '''stretches a pm midi file'''
+    for note in pm.instruments[0].notes:
+        note.start = note.start * speed
+        note.end = note.end * speed
 
 def files2note_bin_examples(data_path, skip = 300, print_cut_events=True, n_notes=128, speed=1):
     """Reads in midi files, converts to oore, splits into training examples
@@ -159,6 +164,7 @@ def files2note_bin_examples(data_path, skip = 300, print_cut_events=True, n_note
         pm = pretty_midi.PrettyMIDI(data_path + filenames[i])
         sustain_only(pm)
         desus(pm)
+        stretch(pm, speed)
         note_bin = pm2note_bin(pm)
 
         # iterate over all the notes, in leaps of n_notes
@@ -186,33 +192,6 @@ def files2note_bin_examples(data_path, skip = 300, print_cut_events=True, n_note
             print('total_shifts_exceeded: ', shifts_exceeded)
     
     return X
-
-        
-
-        #n_notes is the number of notes to process at once
-        # n_notes = 80
-        #n_events is the number of events in a training example
-        # for i in range(n_notes, len(all_notes) - 1, n_notes):
-        #     pm.instruments[0].notes = all_notes[i - n_notes:i]
-        #     trim_silence(pm)
-        #     events = midi2oore(pm)
-        #     if len(events) >= n_events + 1:
-        #         val_counter += 1
-        #         if val_counter % n == 0:
-        #             X_val.append(events[0:n_events])
-        #             Y_val.append(events[1:n_events+1])
-        #             leftover.append(len(events) - (n_events+1))
-        #         else:
-        #             X.append(events[0:n_events])
-        #             Y.append(events[1:n_events+1])
-        #             leftover.append(len(events) - (n_events+1))
-        #     else:
-        #         too_short.append(len(events))
-
-    
-
-    
-
 
 
 def dump_pickle_data(item, filename):
@@ -243,42 +222,3 @@ def get_max_pred(l):
     array[0][0] = to_categorical(np.argmax(l), num_classes=333)
     return tf.convert_to_tensor(array, dtype=tf.float32)
 
-
-
-
-# print(get_max_pred([1,2,3,2,1]))
-
-# a = np.array([np.array([1]),np.array([2]), np.array([1])])
-
-# print(get_max_pred(a))
-
-# print(tf.convert_to_tensor(a))
-
-# training_events = get_processed_data(data_path)
-
-# print(len(training_events[0]))
-# print(len(training_events))
-            
-
-
-
-
-
-
-
-
-# print(maestro.loc[:,'canonical_composer'])
-
-# add_period_numbers(maestro)
-# print(maestro[maestro['canonical_composer']=='Alban Berg'])
-# print(maestro[maestro.index=='Alban Berg'])
-# print(maestro.head())
-
-
-# for filename in maestro['midi_filename']:
-#     print(filename)
-# print(maestro.index)
-
-# pm = pretty_midi.PrettyMIDI(data_path + '2011/MIDI-Unprocessed_03_R1_2011_MID--AUDIO_R1-D1_16_Track16_wav.midi')
-# print(pm)
-# pm.write('hahahahahahahahahahaha.midi')

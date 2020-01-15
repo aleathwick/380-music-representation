@@ -4,7 +4,7 @@ def hi():
     print('h')
 class DataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras. This is a subclass of Sequence'
-    def __init__(self, data, batch_size=64, dim=(128,6), shuffle=True, transpose=False):
+    def __init__(self, data, batch_size=64, dim=(128,6), shuffle=True, augment=True):
         """Initialization
         Note that data should be a list of X
         """
@@ -12,7 +12,17 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.dim = dim #the dimension of a single example
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.augment = augment
         self.on_epoch_end()
+
+    def transpose(self, X, Y):
+        'Randomly transposes examples up or down by up to 3 semitones'
+        for i in range(len(X)):
+            semitones = np.random.randint(-3, 4)
+            # if this goes above or below the range of the piano, just use highest or lowest note
+            for j in range(self.dim[0]):
+                X[i,j,0] = min(max(X[i,j,0] + semitones, 0), 87)
+                Y[i,j,0] = min(max(Y[i,j,0] + semitones, 0), 87)
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -26,7 +36,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         # Generate data
         X, Y = self.__data_generation(indexes)
 
-        if transpose:
+        if self.transpose:
             self.transpose(X, Y)
         
         # Different note attribute targets are separate outputs
@@ -53,23 +63,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         if self.shuffle == True:
             np.random.shuffle(self.indexes)
     
-    def transpose(self, X, Y):
-        'Randomly transposes examples up or down by up to 3 semitones'
-        for i in range(len(X)):
-            semitones = np.random.randint(-3, 4)
-            # if this goes above or below the range of the piano, just use highest or lowest note
-            for j in range(self.dim[0]):
-                X[i,j,0] = min(max(X[i,:,0] + semitones, 0), 87)
-                Y[i,j,0] = min(max(Y[i,:,0] + semitones, 0), 87)
     
-
-
-
-        twinticks2sec(noteB[shift_major], noteB[shift_minor], major_ms=600, minor_ms=10
     
-
-
-
 
 
 class RiggedDataGenerator(tf.keras.utils.Sequence):
