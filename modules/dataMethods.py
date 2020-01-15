@@ -126,7 +126,7 @@ def get_processed_oore_data(data_path, skip = 50, print_cut_events=True, n = 8, 
     return (X, Y, X_val, Y_val, n_events)
 
 
-def files2note_bin_examples(data_path, skip = 300, print_cut_events=True, n_notes=128):
+def files2note_bin_examples(data_path, skip = 300, print_cut_events=True, n_notes=128, speed=1):
     """Reads in midi files, converts to oore, splits into training examples
     
     Arguments:

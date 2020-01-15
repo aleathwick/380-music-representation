@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow.keras import layers
 
@@ -58,25 +59,33 @@ def create_model1(hidden_state_size = 128, seq_length = 128, batch_size=128, sta
     return model
 
 
-def generate_music(model, temperatures=[0.1,0.1,0.1,0.1,0.1,0.1], input_note=[34,0,0,3,3,16]):
+def generate_music(model, temperatures=[0.1,0.1,0.1,0.1,0.1,0.1], input_notes=[[34,0,0,3,3,16]]):
     # Low temperatures results in more predictable text.
     # Higher temperatures results in more surprising text.
     # Experiment to find the best setting.
     # Number of notes to generate
     num_generate = 128
     notes_generated = []
-    notes_generated.append(input_note)
-    # I think I need to do this? batch size of 1...
-    input_note = np.array(input_note)
-    input_note = tf.expand_dims(input_note, 0)
-    input_note = tf.expand_dims(input_note, 0)
-    print(input_note)
-
-
     
 
     # Here batch size == 1
     model.reset_states()
+
+    # prime the model with the input notes
+    for input_note in input_notes[:-1]:
+        notes_generated.append(input_note)
+        print(input_note)
+        # I think I need to do this? batch size of 1...
+        input_note = np.array(input_note)
+        input_note = tf.expand_dims(input_note, 0)
+        input_note = tf.expand_dims(input_note, 0)
+        predictions = model(input_note)
+
+
+    input_note = input_notes[-1]
+    input_note = np.array(input_note)
+    input_note = tf.expand_dims(input_note, 0)
+    input_note = tf.expand_dims(input_note, 0)
     for i in range(num_generate):
         predictions = model(input_note)
 
@@ -100,4 +109,20 @@ def generate_music(model, temperatures=[0.1,0.1,0.1,0.1,0.1,0.1], input_note=[34
     return(notes_generated)
 
 
+def plt_metric(history, metric='loss'):
+    """plots metrics from the history of a model
+    
+    Arguments:
+    history -- history of a keras model
+    metric -- str, metric to be plotted
+    
+    """
+
+    plt.plot(history.history[metric])
+    # plt.plot(history.history['val_' + metric])
+    plt.title('model ' + metric)
+    plt.ylabel(metric)
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.show()
 
