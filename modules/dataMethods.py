@@ -43,7 +43,7 @@ def add_period_numbers(df):
     # maestro['period'] = maestro['canonical_composer'].map(periods_dict)
 
 
-def get_processed_oore_data(data_path, skip = 50, print_cut_events=True, n = 8, n_events=256):
+def get_processed_oore_data(data_path, filenames, skip = 50, print_cut_events=True, n = 8, n_events=256):
     """Reads in midi files, converts to oore, splits into training examples
     
     Parameters:
@@ -131,7 +131,7 @@ def stretch(pm, speed):
         note.start = note.start * speed
         note.end = note.end * speed
 
-def files2note_bin_examples(data_path, skip = 300, print_cut_events=True, n_notes=128, speed=1):
+def files2note_bin_examples(data_path, filenames, skip = 300, print_cut_events=True, n_notes=128, speed=1):
     """Reads in midi files, converts to oore, splits into training examples
     
     Arguments:
@@ -145,16 +145,17 @@ def files2note_bin_examples(data_path, skip = 300, print_cut_events=True, n_note
     X -- list of training examples, each of length n_notes + 1. X[:-1] for input, X[1:] for output.
     
     """
-    maestro = pd.read_csv('training_data/maestro-v2.0.0withPeriod.csv', index_col=0)
-    filenames = list(maestro['midi_filename'])
+
     n_files = len(filenames)
-    file_n = 0
+    file_n = 1
     #just want a selection at this stage
     X = []
+    exceeded = []
     max_shift = 9 # 10 total ticks... one of them is ZERO!
     max_duration = 17
     shifts_exceeded = 0
     durations_exceeded = 0
+    notes_lost = 0
     # We'll check how many events have to be discarded because they're longer than target sequence length
     leftover = []
     # And we'll check too how many sequences are too short
@@ -164,12 +165,13 @@ def files2note_bin_examples(data_path, skip = 300, print_cut_events=True, n_note
         pm = pretty_midi.PrettyMIDI(data_path + filenames[i])
         sustain_only(pm)
         desus(pm)
-        stretch(pm, speed)
+        if speed != 1:
+            stretch(pm, speed)
         note_bin = pm2note_bin(pm)
 
         # iterate over all the notes, in leaps of n_notes
-        file_n += 1
         print('######## Example no.', file_n, 'of', n_files, ', length ' + str(len(note_bin)))
+        file_n += skip
         for i in range(0, len(note_bin), n_notes):
             # check there are enough notes left for a training example
             if len(note_bin[i:]) >= n_notes + 1:
@@ -182,16 +184,25 @@ def files2note_bin_examples(data_path, skip = 300, print_cut_events=True, n_note
                     else:
                         # print('exceeded: ' + str(max([note[3] for note in example])))
                         durations_exceeded += 1
+                        notes_lost += n_notes + 1
+                        exceeded.append(example)
+
                 else:
                     # print('exceeded: ' + str(max([note[1] for note in example])))
                     shifts_exceeded +=1
+                    notes_lost += n_notes + 1
+                    exceeded.append(example)
             else:
-                too_short.append(len(note_bin[i * n_notes:]))
+                notes_lost += len(note_bin[i:])
         if print_cut_events:
+            print('notes: ', (n_notes + 1) * len(X))
             print('total_durations_exceeded: ', durations_exceeded)
             print('total_shifts_exceeded: ', shifts_exceeded)
+            print('notes_lost: ', notes_lost)
     
-    return X
+    return X, exceeded
+
+
 
 
 def dump_pickle_data(item, filename):

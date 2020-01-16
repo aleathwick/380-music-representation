@@ -72,7 +72,7 @@ def bin_sus(pm, cutoff = 50):
     pm.instruments[0].control_changes = filtered_cc
 
 
-def desus(pm, cutoff = 50):
+def desus(pm, cutoff = 64):
     """Remove sustain pedal, and lengthen notes to emulate sustain effect"""
     # collect intervals in which pedal is down, and remove the pedal messages
     filtered_cc = []
@@ -118,6 +118,52 @@ def desus(pm, cutoff = 50):
             if note.pitch == long_note.pitch and note.start < long_note.end and note.end > long_note.end:
                 long_note.end = note.start
                 # or could set it to note.end. I don't know which is best. Both seem ok.
+
+def chroma(pm):
+    '''generates chroma for each note of a pretty midi file'''
+    notes = pm.instruments[0].notes
+    chroma_times = [0] * 12
+    chroma_output = np.zeros((len(notes), 12))
+    for i, note in enumerate(pm.instruments[0].notes):
+        pitch = pitchM2pitchB(note.pitch) % 12 # C is 0
+        chroma_times[pitch] = note.off
+        for j in range(12):
+            if note.start < chroma_times[j]:
+                chroma_output[i,j] = 1
+    return chroma_output
+
+def chroma_weighted(pm):
+    '''generates chroma weighted by pitch for each note of a pretty midi file'''
+    roll = piano_roll(pm)
+    steps = len(roll)
+    chroma_output = np.zeros((len(notes), 12))
+    for i, snapshot in enumerate(roll):
+        for j range(87):
+            ############## check for equality like this?? ###################
+            if snapshot[j] == 1:
+                chroma_output[i,j] = 1 - j / 87
+    return chroma_output
+
+def lowest_note(pm):
+    pass
+
+def piano_roll(pm):
+    notes = pm.instruments[0].notes
+    note_times = [0] * 88
+    roll = np.zeros((len(notes), 88))
+    for i, note in enumerate(pm.instruments[0].notes):
+        pitchB = pitchM2pitchB(note.pitch)
+        note_times[pitchB] = note.off
+        for j in range(88):
+            if note.start < note_times[j]:
+                chroma_output[i,j] = 1
+    return roll
+
+def pitch_cont():
+    pass
+
+def n_notes():
+    pass
 
 
 def snap_to_grid(event_time, size=8):
@@ -281,11 +327,11 @@ def pitchM2pitchB(pitchM):
     """Maps midi notes to [0, 87]"""
     return pitchM - 21 # lowest A is 21
 
+
 def pitchB2pitchM(pitchM):
     """Maps notes from [0, 87] to midi numbers"""
     return pitchM + 21 # lowest A is 21
 
-def hi():
     print('hi')
 
 def sec2twinticks(time_s, major_ms=600, minor_ms=10, max_major=9):

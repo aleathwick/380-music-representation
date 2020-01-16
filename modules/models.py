@@ -59,12 +59,11 @@ def create_model1(hidden_state_size = 128, seq_length = 128, batch_size=128, sta
     return model
 
 
-def generate_music(model, temperatures=[0.1,0.1,0.1,0.1,0.1,0.1], input_notes=[[34,0,0,3,3,16]]):
+def generate_music(model, num_generate=256, temperatures=[0.1,0.1,0.1,0.1,0.1,0.1], input_notes=[[34,0,0,3,3,16]]):
     # Low temperatures results in more predictable text.
     # Higher temperatures results in more surprising text.
     # Experiment to find the best setting.
     # Number of notes to generate
-    num_generate = 128
     notes_generated = []
     
 
@@ -74,7 +73,6 @@ def generate_music(model, temperatures=[0.1,0.1,0.1,0.1,0.1,0.1], input_notes=[[
     # prime the model with the input notes
     for input_note in input_notes[:-1]:
         notes_generated.append(input_note)
-        print(input_note)
         # I think I need to do this? batch size of 1...
         input_note = np.array(input_note)
         input_note = tf.expand_dims(input_note, 0)

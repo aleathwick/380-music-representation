@@ -1,7 +1,6 @@
 import numpy as np
 import tensorflow as tf
-def hi():
-    print('h')
+
 class DataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras. This is a subclass of Sequence'
     def __init__(self, data, batch_size=64, dim=(128,6), shuffle=True, augment=True):
