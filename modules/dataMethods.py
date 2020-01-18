@@ -131,12 +131,14 @@ def stretch(pm, speed):
         note.start = note.start * speed
         note.end = note.end * speed
 
-def files2note_bin_examples(data_path, filenames, skip = 300, print_cut_events=True, n_notes=128, speed=1):
+def files2note_bin_examples(data_path, filenames, skip = 1, starting_note=0, print_cut_events=True, n_notes=256, speed=1):
     """Reads in midi files, converts to oore, splits into training examples
     
     Arguments:
     data_path -- str, path to the data directory, where all the midi files are
-    skip -- int that says 'take every nth file', controls number of files in between those taken
+    filenames -- list of filenames to read in
+    skip -- int, 'take every nth file'
+    starting_note -- int, 'start reading files at nth note'
     print_cut_events -- bool: If true, then lists of numbers of discarded events will be printed, that didn't make the training examples, because they
         would have made the example too long, or they weren't long enough to form an example. 
     n_events -- int, no. of events per training example
@@ -172,7 +174,7 @@ def files2note_bin_examples(data_path, filenames, skip = 300, print_cut_events=T
         # iterate over all the notes, in leaps of n_notes
         print('######## Example no.', file_n, 'of', n_files, ', length ' + str(len(note_bin)))
         file_n += skip
-        for i in range(0, len(note_bin), n_notes):
+        for i in range(starting_note, len(note_bin), n_notes):
             # check there are enough notes left for a training example
             if len(note_bin[i:]) >= n_notes + 1:
                 # example, initially, has one extra note, so it can be X and Y
@@ -202,8 +204,13 @@ def files2note_bin_examples(data_path, filenames, skip = 300, print_cut_events=T
     
     return X, exceeded
 
-
-
+def nb_data2chroma(examples):
+    chroma = np.empty((examples.shape[0], examples.shape[1], 12))
+    for i, e in enumerate(examples):
+        # print(f'processing example {i} of {len(chroma)}')
+        chroma[i,:,:] = nb2chroma(e)
+    return(chroma)
+        
 
 def dump_pickle_data(item, filename):
     with open(filename, 'wb') as f:

@@ -5,7 +5,7 @@ import tensorflow as tf
 from tensorflow.keras import layers
 
 def create_model1(hidden_state_size = 128, seq_length = 128, batch_size=128, stateful = False,
-    lstm_layers = 1,
+    lstm_layers = 1, recurrent_dropout = 0.0,
     vocab={"pitch":88, "shift_M":10, "shift_m":60, "duration_M":18, "duration_m":30, "velocity":32}):
     """creates a simple model
     
@@ -41,7 +41,8 @@ def create_model1(hidden_state_size = 128, seq_length = 128, batch_size=128, sta
     x = layers.concatenate([x1,x2,x3,x4,x5,x6])
     # don't think I need return state here, as I'm not doing the for loop manually?
     for i in range(lstm_layers):
-        x = layers.LSTM(hidden_state_size, return_sequences=True, stateful=stateful)(x)
+        x = layers.LSTM(hidden_state_size, return_sequences=True, stateful=stateful,
+                        recurrent_dropout=recurrent_dropout)(x)
 
     pitch_out = layers.Dense(vocab['pitch'], activation='softmax', )(x)
     shift_M_out = layers.Dense(vocab['shift_M'], activation='softmax')(x)
@@ -59,7 +60,7 @@ def create_model1(hidden_state_size = 128, seq_length = 128, batch_size=128, sta
     return model
 
 
-def generate_music(model, num_generate=256, temperatures=[0.1,0.1,0.1,0.1,0.1,0.1], input_notes=[[34,0,0,3,3,16]]):
+def generate_music(model, num_generate=256, temperatures=[0.2] * 6, input_notes=[[34,0,0,3,3,16]]):
     # Low temperatures results in more predictable text.
     # Higher temperatures results in more surprising text.
     # Experiment to find the best setting.
@@ -117,10 +118,10 @@ def plt_metric(history, metric='loss'):
     """
 
     plt.plot(history.history[metric])
-    # plt.plot(history.history['val_' + metric])
+    plt.plot(history.history['val_' + metric])
     plt.title('model ' + metric)
     plt.ylabel(metric)
     plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
+    plt.legend(['train', 'val'], loc='upper left')
     plt.show()
 

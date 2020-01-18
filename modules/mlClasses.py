@@ -3,7 +3,7 @@ import tensorflow as tf
 
 class DataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras. This is a subclass of Sequence'
-    def __init__(self, data, batch_size=64, dim=(128,6), shuffle=True, augment=True):
+    def __init__(self, data, batch_size=64, dim=(256,6), shuffle=True, augment=True, st = 4):
         """Initialization
         Note that data should be a list of X
         """
@@ -13,11 +13,12 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.shuffle = shuffle
         self.augment = augment
         self.on_epoch_end()
+        self.st = st
 
     def transpose(self, X, Y):
         'Randomly transposes examples up or down by up to 3 semitones'
         for i in range(len(X)):
-            semitones = np.random.randint(-3, 4)
+            semitones = np.random.randint(-self.st, (self.st + 1))
             # if this goes above or below the range of the piano, just use highest or lowest note
             for j in range(self.dim[0]):
                 X[i,j,0] = min(max(X[i,j,0] + semitones, 0), 87)
