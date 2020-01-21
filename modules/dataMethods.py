@@ -43,7 +43,7 @@ def add_period_numbers(df):
     # maestro['period'] = maestro['canonical_composer'].map(periods_dict)
 
 
-def get_processed_oore_data(data_path, filenames, skip = 50, print_cut_events=True, n = 8, n_events=256):
+def get_processed_oore_data(data_path, filenames, skip = 1, print_cut_events=True, n = 8, n_events=256):
     """Reads in midi files, converts to oore, splits into training examples
     
     Parameters:
@@ -83,8 +83,6 @@ def get_processed_oore_data(data_path, filenames, skip = 50, print_cut_events=Tr
         number of events in a training example
     
     """
-    maestro = pd.read_csv('training_data/maestro-v2.0.0withPeriod.csv', index_col=0)
-    filenames = list(maestro['midi_filename'])
     #just want a selection at this stage
     X = []
     Y = []
@@ -204,13 +202,25 @@ def files2note_bin_examples(data_path, filenames, skip = 1, starting_note=0, pri
     
     return X, exceeded
 
-def nb_data2chroma(examples):
+def nb_data2chroma(examples, mode = 'normal'):
     chroma = np.empty((examples.shape[0], examples.shape[1], 12))
     for i, e in enumerate(examples):
         # print(f'processing example {i} of {len(chroma)}')
-        chroma[i,:,:] = nb2chroma(e)
+        if mode == 'normal':
+            chroma[i,:,:] = nb2chroma(e)
+        elif mode == 'weighted':
+            chroma[i,:,:] = nb2chroma_weighted(e)
+        elif mode == 'lowest':
+            chroma[i,:,:] = nb2lowest(e)
     return(chroma)
-        
+
+def nb_data2lowest(examples):
+    lowest = np.empty((examples.shape[0], examples.shape[1], 12))
+    for i, e in enumerate(examples):
+        # print(f'processing example {i} of {len(chroma)}')
+        lowest[i,:,:] = nb2lowest(e)
+    return(chroma)
+
 
 def dump_pickle_data(item, filename):
     with open(filename, 'wb') as f:

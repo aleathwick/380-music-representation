@@ -146,8 +146,13 @@ def chroma_weighted(pm):
 
 
 
-def lowest_note(pm):
-    pass
+def nb2lowest(nb):
+    roll = nb2roll(nb)
+    roll_idx = np.where(roll == 1)
+    lowest = np.zeros((len(roll), 12))
+    for i, idx in enumerate(roll):
+        lowest[i, min(np.where(c == 1)[0]) % 12] = 1
+    return lowest
 
 def pm2roll(pm):
     notes = pm.instruments[0].notes
@@ -161,13 +166,16 @@ def pm2roll(pm):
                 chroma_output[i,j] = 1
     return roll
 
+
 def nb2roll(nb):
     current_time = 0
     note_times = [0] * 88
     roll = np.zeros((len(nb), 88))
     for i, note in enumerate(nb):
+        # update current time
         current_time += twinticks2sec(note[1], note[2], major_ms=600, minor_ms=10)
-        note_times[note[0]] = current_time + twinticks2sec(note[3], note[4],major_ms=600, minor_ms=20)
+        # update current sounding note end
+        note_times[note[0]] = max(current_time + twinticks2sec(note[3], note[4],major_ms=600, minor_ms=20), note_times[note[0]])
         for j in range(88):
             if current_time < note_times[j]:
                 roll[i,j] = 1
@@ -180,6 +188,16 @@ def nb2chroma(nb):
     chroma = np.zeros((len(roll), 12))
     for i, c in enumerate(roll):
         chroma[i, np.where(c == 1)[0] % 12] = 1
+    return chroma
+
+def nb2chroma_weighted(nb):
+    roll = nb2roll(nb)
+    roll_idx = np.where(roll == 1)
+    chroma = np.zeros((len(roll), 12))
+    for i, c in enumerate(roll):
+        for j in np.where(c == 1)[0]:
+            if chroma[i, j % 12] == 0:
+                chroma[i, j % 12] = 1 - j / 87
     return chroma
 
 
@@ -425,13 +443,13 @@ def pm2note_bin(pm):
 
         # time shift: get the tuple of two bins
         shift = note.start - last_start
-        shiftB = sec2twinticks(shift, major_ms=1000, minor_ms=50)
+        shiftB = sec2twinticks(shift, major_ms=600, minor_ms=10)
 
         last_start = note.start
 
         # duration: get the tuple of two bins
         duration = note.end - note.start
-        durationB = sec2twinticks(duration, major_ms=1000, minor_ms=100)
+        durationB = sec2twinticks(duration, major_ms=600, minor_ms=20)
 
         velocityB = rebin(note.velocity, a=128, b=32)
 
@@ -462,7 +480,7 @@ def note_bin2pm(note_bin):
         current_time += twinticks2sec(noteB[shift_major], noteB[shift_minor], major_ms=600, minor_ms=10)
         duration = twinticks2sec(noteB[duration_major], noteB[duration_minor], major_ms=600, minor_ms=20)
         if duration == 0:
-            duration += 50
+            duration += 0.02
         end = current_time + duration
 
         noteM = pretty_midi.Note(velocityM, pitchM, current_time, end)
