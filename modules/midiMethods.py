@@ -261,7 +261,9 @@ def pm2oore(pm):
     velocities = []
     n_velocities = 32
     for note in pm.instruments[0].notes:
+        on = snap_to_grid(note.start)
         note_ons.append((snap_to_grid(note.start), note.pitch - 21)) # -21 because lowest A is note 21 in midi
+        off = snap_to_grid(note.end)
         note_offs.append((snap_to_grid(note.end), note.pitch - 21 + 88))
         velocities.append((snap_to_grid(note.start), round(301 + note.velocity * (n_velocities - 1)/127))) #remember here we're mapping velocities to [0,n_velocities - 1]
 
@@ -294,6 +296,79 @@ def pm2oore(pm):
             remainder = int(shift % 125) # how many more 8ms units do we need to shift?
             for seconds in range(seconds):
                 events_with_shifts.append(300) # time shift a second
+            if remainder != 0:
+                events_with_shifts.append(remainder + 175)
+        #append the event number only if it is not a repeated note off
+        if 88 <= event[1] <= 175 and event[1] != previous_event_no or event[1] < 88 or event[1] > 175:
+            events_with_shifts.append(event[1]) # append event no. only
+            previous_event_no = event[1]
+    return events_with_shifts        
+
+def pm2oore2(pm):
+    """Create event representation of midi. Must have sustain pedal removed.
+    Will only have one note off for duplicate notes, even if multiple note offs are required.
+
+    333 total possible events:
+    0 - 87: 88 note on events, 
+    88 - 175: 88 note off events
+    176 - 225: 50 time shift events (25ms to 1.25sec)
+    226 - 241: 16 velocity events
+
+    Parameters:
+    ----------
+    pm : Pretty_Midi
+        pretty midi object containing midi for a piano performance. Must have no sustain pedal.
+
+    Returns:
+    ----------
+    events_with_shifts : list
+        A list of events expressed as numbers between 0 and 332
+
+    """
+    # initially, store these in lists (time, int) tuples, where time is already snapped to 8ms grid,
+    # and integers represent which event has taken place, from 0 to 332
+    note_ons = []
+    note_offs = []
+    velocities = []
+    n_velocities = 16
+    n_shifts = 50
+    min_tick = 25
+    for note in pm.instruments[0].notes:
+        on = snap_to_grid(note.start, size=min_tick)
+        note_ons.append((snap_to_grid(note.start, size=min_tick), note.pitch - 21)) # -21 because lowest A is note 21 in midi
+        off = snap_to_grid(note.end, size=min_tick)
+        note_offs.append((snap_to_grid(note.end, size=min_tick), note.pitch - 21 + 88))
+        velocities.append((snap_to_grid(note.start, size=min_tick), round(226 + note.velocity * (n_velocities - 1)/127))) #remember here we're mapping velocities to [0,n_velocities - 1]
+
+    # remove duplicate consecutive velocities
+    velocities.sort() #sort by time
+    previous = (-1, -1)
+    new_velocities = []
+    for velocity in velocities:
+        if velocity[1] != previous[1]: # check that we haven't just had this velocity
+            new_velocities.append(velocity)
+        previous = velocity
+    velocities = new_velocities
+
+    # Get all events, sorted by time
+    # For simultaneous events, we want velocity change, then note offs, then note ons, so we
+    # sort first by time, then by negative event number
+    events = note_ons + note_offs + velocities
+    events.sort(key = lambda x: (x[0], -x[1]))
+
+    # add in time shift events. events 176 - 300.
+    events_with_shifts = []
+    previous_time = 0
+    previous_event_no = -1
+    for event in events:
+        difference = event[0] - previous_time # time in ms since previous event
+        previous_time = event[0] # update the previous event
+        if difference != 0:
+            shift = difference / min_tick # find out how many 25ms units have passed
+            seconds = int(np.floor(shift / n_shifts)) # how many seconds have passed? (max we can shift at once)
+            remainder = int(shift % n_shifts) # how many more 8ms units do we need to shift?
+            for seconds in range(seconds):
+                events_with_shifts.append(225) # time shift 1.25 seconds
             if remainder != 0:
                 events_with_shifts.append(remainder + 175)
         #append the event number only if it is not a repeated note off
@@ -417,7 +492,7 @@ def rebin(bin, a=128, b=32):
     return round(bin * (b-1)/(a-1))
 
 
-def pm2note_bin(pm):
+def pm2note_bin(pm, M_shift_ms = 600, m_shift_ms = 10,  M_duration_ms = 600, m_duration_ms = 20):
     """Maps from pretty midi file to note_bin representation
     
     Arguments:
@@ -443,13 +518,13 @@ def pm2note_bin(pm):
 
         # time shift: get the tuple of two bins
         shift = note.start - last_start
-        shiftB = sec2twinticks(shift, major_ms=600, minor_ms=10)
+        shiftB = sec2twinticks(shift, major_ms=M_shift_ms, minor_ms=m_shift_ms)
 
         last_start = note.start
 
         # duration: get the tuple of two bins
         duration = note.end - note.start
-        durationB = sec2twinticks(duration, major_ms=600, minor_ms=20)
+        durationB = sec2twinticks(duration, major_ms=M_duration_ms, minor_ms=m_duration_ms)
 
         velocityB = rebin(note.velocity, a=128, b=32)
 
@@ -458,7 +533,7 @@ def pm2note_bin(pm):
     return note_bin
 
 
-def note_bin2pm(note_bin):
+def note_bin2pm(note_bin, M_shift_ms = 600, m_shift_ms = 10,  M_duration_ms = 600, m_duration_ms = 20):
     """Performs inverse function of pm2notebin"""
 
     pm = pretty_midi.PrettyMIDI(resolution=125)
@@ -477,8 +552,8 @@ def note_bin2pm(note_bin):
     for noteB in note_bin:
         velocityM = rebin(noteB[velocity], 32, 128)
         pitchM = pitchB2pitchM(noteB[pitch])
-        current_time += twinticks2sec(noteB[shift_major], noteB[shift_minor], major_ms=600, minor_ms=10)
-        duration = twinticks2sec(noteB[duration_major], noteB[duration_minor], major_ms=600, minor_ms=20)
+        current_time += twinticks2sec(noteB[shift_major], noteB[shift_minor], major_ms=M_shift_ms, minor_ms=m_shift_ms)
+        duration = twinticks2sec(noteB[duration_major], noteB[duration_minor], major_ms=M_duration_ms, minor_ms=m_duration_ms)
         if duration == 0:
             duration += 0.02
         end = current_time + duration

@@ -155,44 +155,44 @@ def generate_ooremusic(model, num_generate=256, temperature=0.2, input_events=[3
     # Higher temperatures results in more surprising text.
     # Experiment to find the best setting.
     # Number of notes to generate
-    notes_generated = []
-    input_notes = np.array(input_notes)
+    events_generated = []
+    input_events = np.array(input_events)
 
     # Here batch size == 1
     model.reset_states()
 
     # prime the model with the input notes
-    for i, input_note in enumerate(input_notes[:-1]):
-        notes_generated.append(input_note)
+    for i, input_event in enumerate(input_events[:-1]):
+        events_generated.append(input_event)
         # I think I need to do this? batch size of 1...
-        input_note = tf.expand_dims(input_note, 0)
-        input_note = tf.expand_dims(input_note, 0)
-        predictions = model(input_note)
+        input_event = tf.expand_dims(input_event, 0)
+        input_event = tf.expand_dims(input_event, 0)
+        input_event = tf.expand_dims(input_event, 0)
+        predictions = model(input_event)
 
 
-    input_note = input_notes[-1]
-    input_note = np.array(input_note)
-    input_note = tf.expand_dims(input_note, 0)
-    input_note = tf.expand_dims(input_note, 0)
+    input_event = input_events[-1]
+    input_event = np.array(input_event)
+    input_event = tf.expand_dims(input_event, 0)
+    input_event = tf.expand_dims(input_event, 0)
+    input_event = tf.expand_dims(input_event, 0)
     for i in range(num_generate):
-        prediction = model(input_note)
-
-        note = []
+        prediction = model(input_event)
 
         # using a categorical distribution to predict the note returned by the model
         # have to do this for each output attribute of the note
             # remove the batch dimension
-        prediction = tf.squeeze(attribute, 0)
+        prediction = tf.squeeze(prediction, 0)
         prediction = prediction / temperature
         predicted_id = tf.random.categorical(prediction, num_samples=1)[-1,0].numpy()
 
         # We pass the predicted word as the next input to the model
         # along with the previous hidden state
-        input_note = tf.expand_dims(tf.expand_dims(note, 0), 0)
+        input_event = tf.expand_dims(tf.expand_dims(tf.expand_dims(predicted_id, 0), 0), 0)
 
-        notes_generated.append(predicted_id)
+        events_generated.append(predicted_id)
 
-    return(notes_generated)
+    return(events_generated)
 
 
 

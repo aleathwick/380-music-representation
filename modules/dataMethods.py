@@ -43,7 +43,8 @@ def add_period_numbers(df):
     # maestro['period'] = maestro['canonical_composer'].map(periods_dict)
 
 
-def get_processed_oore_data(data_path, filenames, skip = 1, print_cut_events=True, n = 8, n_events=256):
+def get_processed_oore_data(data_path, filenames, skip = 1, print_cut_events=True, n = 10,
+                            n_events=600, speed=1):
     """Reads in midi files, converts to oore, splits into training examples
     
     Parameters:
@@ -97,9 +98,14 @@ def get_processed_oore_data(data_path, filenames, skip = 1, print_cut_events=Tru
         pm = pretty_midi.PrettyMIDI(data_path + filenames[i])
         sustain_only(pm)
         desus(pm)
+        # keep a copy of the notes for later (well, technically a reference...)
+        # but we'll reassign to notes with a slice from all_notes, so it will work
+        if speed != 1:
+            stretch(pm, speed)
         all_notes = pm.instruments[0].notes
         #n_notes is the number of notes to process at once
-        n_notes = 80
+        # originally 80, now 200
+        n_notes = 200
         #n_events is the number of events in a training example
         for i in range(n_notes, len(all_notes) - 1, n_notes):
             pm.instruments[0].notes = all_notes[i - n_notes:i]
@@ -109,11 +115,9 @@ def get_processed_oore_data(data_path, filenames, skip = 1, print_cut_events=Tru
                 val_counter += 1
                 if val_counter % n == 0:
                     X_val.append(events[0:n_events])
-                    Y_val.append(events[1:n_events+1])
                     leftover.append(len(events) - (n_events+1))
                 else:
                     X.append(events[0:n_events])
-                    Y.append(events[1:n_events+1])
                     leftover.append(len(events) - (n_events+1))
             else:
                 too_short.append(len(events))
@@ -121,7 +125,92 @@ def get_processed_oore_data(data_path, filenames, skip = 1, print_cut_events=Tru
         print('leftover: ', leftover)
         print('too_short: ', too_short)
 
-    return (X, Y, X_val, Y_val, n_events)
+    return (X, X_val)
+
+def get_processed_oore2_data(data_path, filenames, skip = 1, print_cut_events=True, n = 10,
+                            n_events=600, speed=1):
+    """Reads in midi files, converts to oore, splits into training examples
+    
+    Parameters:
+    ----------
+    data_path: str
+        path to the data directory, where all the midi files are
+
+    skip : int
+        take every nth file, controls number of files in between those taken
+
+    print_cut_events : bool
+        If true, then lists of numbers of discarded events will be printed, that didn't make the training examples, because they
+        would have made the example too long, or they weren't long enough to form an example. 
+
+    n : int
+        sends every nth training example to the validation set
+
+    n_events : int
+        no. of events per training example
+
+    Returns
+    ----------
+    X : list
+        list of training examples
+
+    Y : list
+        Essentially the same as X, but displaced by a timestep, so it can act as the truth set at each step
+    
+    X_val : list
+        list of validation examples
+
+    Y_val : list
+        Essentially the same as X_val, but displaced by a timestep, so it can act as the truth set at each step
+
+
+    n_events: int
+        number of events in a training example
+    
+    """
+    #just want a selection at this stage
+    X = []
+    Y = []
+    X_val = []
+    Y_val = []
+    val_counter = 1
+    # We'll check how many events have to be discarded because they're longer than target sequence length
+    leftover = []
+    # And we'll check too how many sequences are too short
+    too_short = []
+    for i in range(0, len(filenames) - 1, skip):
+        pm = pretty_midi.PrettyMIDI(data_path + filenames[i])
+        sustain_only(pm)
+        desus(pm)
+        # keep a copy of the notes for later (well, technically a reference...)
+        # but we'll reassign to notes with a slice from all_notes, so it will work
+        if speed != 1:
+            stretch(pm, speed)
+        all_notes = pm.instruments[0].notes
+        #n_notes is the number of notes to process at once
+        # originally 80, now 180
+        n_notes = 180
+        #n_events is the number of events in a training example
+        for i in range(n_notes, len(all_notes) - 1, n_notes):
+            pm.instruments[0].notes = all_notes[i - n_notes:i]
+            trim_silence(pm)
+            events = midi2oore2(pm)
+            if len(events) >= n_events + 1:
+                val_counter += 1
+                if val_counter % n == 0:
+                    X_val.append(events[0:n_events])
+                    leftover.append(len(events) - (n_events+1))
+                else:
+                    X.append(events[0:n_events])
+                    leftover.append(len(events) - (n_events+1))
+            else:
+                too_short.append(len(events))
+    if print_cut_events:
+        print('leftover: ', leftover)
+        print('too_short: ', too_short)
+
+    return (X, X_val)
+
 
 def stretch(pm, speed):
     '''stretches a pm midi file'''
