@@ -127,9 +127,10 @@ def get_processed_oore_data(data_path, filenames, skip = 1, print_cut_events=Tru
 
     return (X, X_val)
 
+
 def get_processed_oore2_data(data_path, filenames, skip = 1, print_cut_events=True, n = 10,
                             n_events=600, speed=1):
-    """Reads in midi files, converts to oore, splits into training examples
+    """Second version. Reads in midi files, converts to oore, splits into training examples
     
     Parameters:
     ----------
@@ -147,38 +148,24 @@ def get_processed_oore2_data(data_path, filenames, skip = 1, print_cut_events=Tr
         sends every nth training example to the validation set
 
     n_events : int
-        no. of events per training example
+        no. of events per training example. 
 
     Returns
     ----------
     X : list
-        list of training examples
+        list of training examples. each of length n_events + 1, so it can be broken into X, and y displaced by one timestep
 
-    Y : list
-        Essentially the same as X, but displaced by a timestep, so it can act as the truth set at each step
-    
-    X_val : list
-        list of validation examples
-
-    Y_val : list
-        Essentially the same as X_val, but displaced by a timestep, so it can act as the truth set at each step
-
-
-    n_events: int
-        number of events in a training example
-    
     """
     #just want a selection at this stage
     X = []
-    Y = []
-    X_val = []
-    Y_val = []
-    val_counter = 1
     # We'll check how many events have to be discarded because they're longer than target sequence length
     leftover = []
     # And we'll check too how many sequences are too short
     too_short = []
-    for i in range(0, len(filenames) - 1, skip):
+    # get lengths of each example
+    lengths = []
+    for i in range(0, len(filenames), skip):
+        print(f'file {i} of {len(filenames)}')
         pm = pretty_midi.PrettyMIDI(data_path + filenames[i])
         sustain_only(pm)
         desus(pm)
@@ -189,27 +176,27 @@ def get_processed_oore2_data(data_path, filenames, skip = 1, print_cut_events=Tr
         all_notes = pm.instruments[0].notes
         #n_notes is the number of notes to process at once
         # originally 80, now 180
-        n_notes = 180
+        n_notes = int(n_events/2.72)
         #n_events is the number of events in a training example
-        for i in range(n_notes, len(all_notes) - 1, n_notes):
+        for i in range(n_notes, len(all_notes), int(n_notes//2)):
             pm.instruments[0].notes = all_notes[i - n_notes:i]
             trim_silence(pm)
-            events = midi2oore2(pm)
+            # get length, for calculating stats
+            lengths.append(pm.instruments[0].notes[-1].end - pm.instruments[0].notes[0].start)
+            events = pm2oore2(pm)
             if len(events) >= n_events + 1:
-                val_counter += 1
-                if val_counter % n == 0:
-                    X_val.append(events[0:n_events])
-                    leftover.append(len(events) - (n_events+1))
-                else:
-                    X.append(events[0:n_events])
-                    leftover.append(len(events) - (n_events+1))
+                X.append(events[0:n_events + 1])
+                leftover.append(len(events) - (n_events+1))
+                print(f'Success: {len(events) - (n_events+1)} leftover')
             else:
                 too_short.append(len(events))
+                print(f'Failure: {len(events)} long, too short')
     if print_cut_events:
-        print('leftover: ', leftover)
-        print('too_short: ', too_short)
+        print(f'{len(leftover)} examples with leftovers, average lenth {np.mean(leftover):.2f}')
+        print(f'{len(too_short)} examples too short: {np.mean(too_short):.2f}')
+        print(f'average example length: {np.mean(lengths):.2f}')
 
-    return (X, X_val)
+    return X
 
 
 def stretch(pm, speed):

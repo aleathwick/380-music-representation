@@ -21,7 +21,7 @@ def trim_silence(pm):
     "trims any silence from the beginning of a pretty midi object"
     
     # get the time of the first event (note or cc)
-    if pm.instruments[0].control_changes[0] != []:
+    if pm.instruments[0].control_changes != []:
         delay = min(pm.instruments[0].notes[0].start, pm.instruments[0].control_changes[0])
     else:
         delay = pm.instruments[0].notes[0].start
@@ -305,13 +305,13 @@ def pm2oore(pm):
     return events_with_shifts        
 
 def pm2oore2(pm):
-    """Create event representation of midi. Must have sustain pedal removed.
+    """Second version. Create event representation of midi. Must have sustain pedal removed.
     Will only have one note off for duplicate notes, even if multiple note offs are required.
 
-    333 total possible events:
+    242 total possible events:
     0 - 87: 88 note on events, 
     88 - 175: 88 note off events
-    176 - 225: 50 time shift events (25ms to 1.25sec)
+    176 - 225: 50 time shift events (20ms to 1sec)
     226 - 241: 16 velocity events
 
     Parameters:
@@ -332,7 +332,7 @@ def pm2oore2(pm):
     velocities = []
     n_velocities = 16
     n_shifts = 50
-    min_tick = 25
+    min_tick = 20
     for note in pm.instruments[0].notes:
         on = snap_to_grid(note.start, size=min_tick)
         note_ons.append((snap_to_grid(note.start, size=min_tick), note.pitch - 21)) # -21 because lowest A is note 21 in midi
@@ -439,6 +439,68 @@ def oore2pm(events):
     pm.instruments[0].notes = notes
     return pm
 
+
+def oore2pm2(events):
+    """Second version. Maps from a list of event numbers back to midi.
+
+    242 total possible events:
+    0 - 87: 88 note on events, 
+    88 - 175: 88 note off events
+    176 - 225: 50 time shift events (20ms to 1sec)
+    226 - 241: 16 velocity events
+
+    Parameters:
+    ----------
+    events_with_shifts : list
+        A list of events expressed as numbers between 0 and 241
+
+    Returns:
+    ----------
+    pm : Pretty_Midi
+        pretty midi object containing midi for a piano performance.
+
+    """
+    pm = pretty_midi.PrettyMIDI(resolution=40)
+    pm.instruments.append(pretty_midi.Instrument(0, name='piano'))
+
+    notes_on = [] # notes for which there have been a note on event
+    notes = [] # all the retrieved notes
+    current_time = 0 # keep track of time (in seconds)
+    current_velocity = 0
+    min_tick = 20
+
+    for event in events:
+        # sort note ons
+        if 0 <= event <= 87:
+            pitch = event + 21
+            # set attributes of note, with end time as -1 for now
+            note = pretty_midi.Note(current_velocity, pitch, current_time, -1)
+            # add it to notes that haven't had their note off yet
+            notes_on.append(note)
+        # sort note offs
+        elif 88 <= event <= 175:
+            end_pitch = event + 21 - 88
+            new_notes_on = []
+            for note in notes_on:
+                if note.pitch == end_pitch:
+                    note.end = current_time
+                    notes.append(note)
+                else:
+                    new_notes_on.append(note)
+            notes_on = new_notes_on
+        # sort time shifts
+        elif 176 <= event <= 225:
+            shift = event - 175
+            current_time += (shift * min_tick / 1000)
+        # sort velocities
+        elif 226 <= event <= 241:
+            rescaled_velocity = np.round((event - 226) / 15 * 127)
+            current_velocity = int(rescaled_velocity)
+    notes.sort(key = lambda note: note.end)
+    # Just in case there are notes for which note off was never sent, I'll clear notes_on
+    
+    pm.instruments[0].notes = notes
+    return pm
 
 def pitchM2pitchB(pitchM):
     """Maps midi notes to [0, 87]"""
