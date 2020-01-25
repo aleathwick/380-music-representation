@@ -14,14 +14,16 @@ filenames = list(maestro[maestro['split'] == 'train']['midi_filename'])
 data_path = 'training_data/MaestroV2.00/maestro-v2.0.0/'
 
 
-# for note_bin:
-for speed in [0.95, 1, 1.05]:
+#### note_bin ####
+for speed in [0.90,1.1]:
     train, exceeded = files2note_bin_examples(data_path, filenames, skip=1, starting_note=0, n_notes=220, speed=speed)
     with open(f'training_data/note_bin_v2/nb_220_train{speed}.json', 'w') as f:
         json.dump(train, f)
 
 
-# # for oore, get 601 so that we can use 600 at train time:
+#### oore ####
+# # for oore, get 601 so that we can use 600 at train time
+# # (Maybe I corrected in the function for this already!)
 # for speed in [1]:
 #     X = get_processed_oore2_data(data_path, filenames, skip=1, n_events=601, speed=speed)
 #     print('examples in X: ', len(X))
