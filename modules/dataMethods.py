@@ -155,6 +155,10 @@ def get_processed_oore2_data(data_path, filenames, skip = 1, print_cut_events=Tr
     X : list
         list of training examples. each of length n_events + 1, so it can be broken into X, and y displaced by one timestep
 
+    Notes
+    --------
+    Normally there are left over events from any given group of notes selected. Because of this, overlapping groups of notes are selected.
+
     """
     #just want a selection at this stage
     X = []
@@ -221,14 +225,14 @@ def files2note_bin_examples(data_path, filenames, skip = 1, starting_note=0, pri
     X -- list of training examples, each of length n_notes + 1. X[:-1] for input, X[1:] for output.
     
     """
-
+    n_velocity=16
     n_files = len(filenames)
     file_n = 1
     #just want a selection at this stage
     X = []
     exceeded = []
     max_shift = 9 # 10 total ticks... one of them is ZERO!
-    max_duration = 17
+    max_duration = 12
     shifts_exceeded = 0
     durations_exceeded = 0
     notes_lost = 0
@@ -243,12 +247,12 @@ def files2note_bin_examples(data_path, filenames, skip = 1, starting_note=0, pri
         desus(pm)
         if speed != 1:
             stretch(pm, speed)
-        note_bin = pm2note_bin(pm)
+        note_bin = pm2note_bin(pm, M_shift_ms = 600, m_shift_ms = 25,  M_duration_ms = 800, m_duration_ms = 50, n_velocity=16)
 
         # iterate over all the notes, in leaps of n_notes
         print('######## Example no.', file_n, 'of', n_files, ', length ' + str(len(note_bin)))
         file_n += skip
-        for i in range(starting_note, len(note_bin), n_notes):
+        for i in range(starting_note, len(note_bin), int(n_notes//2)):
             # check there are enough notes left for a training example
             if len(note_bin[i:]) >= n_notes + 1:
                 # example, initially, has one extra note, so it can be X and Y

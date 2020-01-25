@@ -17,6 +17,8 @@ def handy_functions():
                 note.pitch += 5
 
 
+######## pretty midi functions ########
+
 def trim_silence(pm):
     "trims any silence from the beginning of a pretty midi object"
     
@@ -52,7 +54,7 @@ def pm_head(pm, seconds = 11):
     pm.instruments[0].control_changes = [cc for cc in pm.instruments[0].control_changes if cc.time < seconds]
 
 
-def bin_sus(pm, cutoff = 50):
+def bin_sus(pm, cutoff = 64):
     """Set sustain so it is either completely on or completely off"""
     filtered_cc = []
     sustain = False
@@ -119,7 +121,8 @@ def desus(pm, cutoff = 64):
                 long_note.end = note.start
                 # or could set it to note.end. I don't know which is best. Both seem ok.
 
-def chroma(pm):
+
+def pm2chroma(pm):
     '''generates chroma for each note of a pretty midi file'''
     notes = pm.instruments[0].notes
     chroma_times = [0] * 12
@@ -131,6 +134,9 @@ def chroma(pm):
             if note.start < chroma_times[j]:
                 chroma_output[i,j] = 1
     return chroma_output
+
+
+######## chroma and feature augmentation ########
 
 def chroma_weighted(pm):
     '''generates chroma weighted by pitch for each note of a pretty midi file'''
@@ -145,7 +151,6 @@ def chroma_weighted(pm):
     return chroma_output
 
 
-
 def nb2lowest(nb):
     roll = nb2roll(nb)
     roll_idx = np.where(roll == 1)
@@ -153,6 +158,7 @@ def nb2lowest(nb):
     for i, idx in enumerate(roll):
         lowest[i, min(np.where(c == 1)[0]) % 12] = 1
     return lowest
+
 
 def pm2roll(pm):
     notes = pm.instruments[0].notes
@@ -184,11 +190,8 @@ def nb2roll(nb):
 
 def nb2chroma(nb):
     roll = nb2roll(nb)
-    roll_idx = np.where(roll == 1)
-    chroma = np.zeros((len(roll), 12))
-    for i, c in enumerate(roll):
-        chroma[i, np.where(c == 1)[0] % 12] = 1
-    return chroma
+    return roll2chroma(roll)
+
 
 def nb2chroma_weighted(nb):
     roll = nb2roll(nb)
@@ -201,12 +204,36 @@ def nb2chroma_weighted(nb):
     return chroma
 
 
+def oore2roll(oo):
+    '''produces a piano roll for music in oore representation'''
+    # get empty piano roll, one time step for every event
+    roll = np.zeros((len(oo), 88))
+    # keep track of what notes are sounding currently
+    sounding = np.zeros(88)
+    for i, event in enumerate(oo):
+        if event <= 87: # note ones
+            sounding[event] = 1
+        elif 88 <= event <= 175: # note offs
+            sounding[event] = 0
+        # update piano roll
+        roll[i] sounding
+    return (roll)
+
+def roll2chroma(roll):
+    chroma = np.zeros((len(roll), 12))
+    for i, sounding in enumerate(roll):
+        chroma[i, np.where(sounding == 1)[0] % 12] = 1
+    return chroma
+
+
 def pitch_cont():
     pass
 
 def n_notes():
     pass
 
+
+######## different representations and related functions ########
 
 def snap_to_grid(event_time, size=8):
     """takes an event time (in seconds) and gives it back snapped to a grid with 8ms between each event.
@@ -502,6 +529,7 @@ def oore2pm2(events):
     pm.instruments[0].notes = notes
     return pm
 
+
 def pitchM2pitchB(pitchM):
     """Maps midi notes to [0, 87]"""
     return pitchM - 21 # lowest A is 21
@@ -554,7 +582,7 @@ def rebin(bin, a=128, b=32):
     return round(bin * (b-1)/(a-1))
 
 
-def pm2note_bin(pm, M_shift_ms = 600, m_shift_ms = 10,  M_duration_ms = 600, m_duration_ms = 20):
+def pm2note_bin(pm, M_shift_ms = 600, m_shift_ms = 10,  M_duration_ms = 600, m_duration_ms = 20, n_velocity=32):
     """Maps from pretty midi file to note_bin representation
     
     Arguments:
@@ -588,7 +616,7 @@ def pm2note_bin(pm, M_shift_ms = 600, m_shift_ms = 10,  M_duration_ms = 600, m_d
         duration = note.end - note.start
         durationB = sec2twinticks(duration, major_ms=M_duration_ms, minor_ms=m_duration_ms)
 
-        velocityB = rebin(note.velocity, a=128, b=32)
+        velocityB = rebin(note.velocity, a=128, b=n_velocity)
 
         note_bin.append([pitchB, shiftB[0], shiftB[1], durationB[0], durationB[1], velocityB])
         

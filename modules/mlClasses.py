@@ -84,7 +84,7 @@ class NbDataGenerator(tf.keras.utils.Sequence):
 
 class OoreDataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras. This is a subclass of Sequence'
-    def __init__(self, data, chroma=[], batch_size=64, dim=(255,), shuffle=True, augment=True, st = 4):
+    def __init__(self, data, chroma=[], batch_size=64, dim=(601,), shuffle=True, augment=True, st = 4):
         """Initialization
         Note that data should be a list of X
         """

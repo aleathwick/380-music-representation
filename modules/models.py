@@ -5,7 +5,7 @@ import tensorflow as tf
 from tensorflow.keras import layers
 
 def create_nbmodel(hidden_state_size = 512, seq_length = 256, batch_size=128, stateful = False,
-    lstm_layers = 3, recurrent_dropout = 0.0, chroma=False,
+    lstm_layers = 3, kernel_reg = None, chroma=False,
     vocab={"pitch":88, "shift_M":10, "shift_m":60, "duration_M":18, "duration_m":30, "velocity":32}):
     """creates a simple model
     
@@ -48,7 +48,7 @@ def create_nbmodel(hidden_state_size = 512, seq_length = 256, batch_size=128, st
     # don't think I need return state here, as I'm not doing the for loop manually?
     for i in range(lstm_layers):
         x = layers.LSTM(hidden_state_size, return_sequences=True, stateful=stateful,
-                        recurrent_dropout=recurrent_dropout)(x)
+                        kernel_regularizer=kernel_reg)(x)
 
     pitch_out = layers.Dense(vocab['pitch'], activation='softmax', )(x)
     shift_M_out = layers.Dense(vocab['shift_M'], activation='softmax')(x)
@@ -113,8 +113,8 @@ def generate_nbmusic(model, num_generate=256, temperatures=[0.2] * 6, input_note
     return(notes_generated)
 
 
-def create_ooremodel(hidden_state_size = 512, seq_length = 256, batch_size=128, stateful = False,
-    lstm_layers = 3, recurrent_dropout = 0.0, chroma=False):
+def create_ooremodel(hidden_state_size = 512, seq_length = 600, batch_size=128, stateful = False,
+    lstm_layers = 3, recurrent_dropout = 0.0, n_events=242, chroma=False):
     """creates a simple model
     
     Arguments:
@@ -130,7 +130,7 @@ def create_ooremodel(hidden_state_size = 512, seq_length = 256, batch_size=128, 
     else:
         inputs = tf.keras.Input(shape=(seq_length,n_inputs))
     # run through a one hot layer
-    x = layers.Lambda(lambda x: tf.one_hot(tf.cast(x[:,:,0], dtype='int32'), 333))(inputs)
+    x = layers.Lambda(lambda x: tf.one_hot(tf.cast(x[:,:,0], dtype='int32'), n_events))(inputs)
     if chroma:
         x1 = layers.Lambda(lambda x: x[:,:,1:])(inputs)
         x = layers.concatenate([x, x1])
