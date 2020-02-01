@@ -3,7 +3,7 @@ import tensorflow as tf
 
 class NbDataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras. This is a subclass of Sequence'
-    def __init__(self, data, chroma=[], batch_size=64, dim=(256,6), shuffle=True, augment=True, st = 4):
+    def __init__(self, data, chroma=[], batch_size=64, dim=(220,6), shuffle=True, augment=True, st = 4):
         """Initialization
         Note that data should be a list of X
         """
@@ -68,7 +68,7 @@ class NbDataGenerator(tf.keras.utils.Sequence):
 
         return X, Y
     def __chroma_generation(self, indexes):
-        C = np.empty((self.batch_size,) + (256,12))
+        C = np.empty((self.batch_size,) + (self.dim[0],12))
         for i, index in enumerate(indexes):
             # Store sample, leaving off the last time step
             C[i,:,:] = self.chroma[index,:-1,:]
@@ -98,7 +98,7 @@ class OoreDataGenerator(tf.keras.utils.Sequence):
         self.chroma = chroma
 
     def __transpose(self, X, Y):
-        'Randomly transposes examples up or down by up to 3 semitones'
+        'Randomly transposes examples up or down by up to st semitones'
         for i in range(len(X)):
             semitones = np.random.randint(-self.st, (self.st + 1))
             # if this goes above or below the range of the piano, just use highest or lowest note
@@ -155,7 +155,7 @@ class OoreDataGenerator(tf.keras.utils.Sequence):
 
         return np.expand_dims(X, axis=-1), np.expand_dims(Y, axis=-1)
     def __chroma_generation(self, indexes):
-        C = np.empty((self.batch_size,) + self.dim)
+        C = np.empty((self.batch_size,) + (self.dim[0],12))
         for i, index in enumerate(indexes):
             # Store sample, leaving off the last time step
             C[i,:,:] = self.chroma[index,:-1,:]

@@ -209,7 +209,7 @@ def stretch(pm, speed):
         note.start = note.start * speed
         note.end = note.end * speed
 
-def files2note_bin_examples(data_path, filenames, skip = 1, starting_note=0, print_cut_events=True, n_notes=256, speed=1):
+def files2note_bin_examples(data_path, filenames, skip = 1, print_cut_events=True, n_notes=220, speed=1):
     """Reads in midi files, converts to oore, splits into training examples
     
     Arguments:
@@ -252,7 +252,7 @@ def files2note_bin_examples(data_path, filenames, skip = 1, starting_note=0, pri
         # iterate over all the notes, in leaps of n_notes
         print('######## Example no.', file_n, 'of', n_files, ', length ' + str(len(note_bin)))
         file_n += skip
-        for i in range(starting_note, len(note_bin), int(n_notes//2)):
+        for i in range(0, len(note_bin), int(n_notes//2)):
             # check there are enough notes left for a training example
             if len(note_bin[i:]) >= n_notes + 1:
                 # example, initially, has one extra note, so it can be X and Y
@@ -280,25 +280,23 @@ def files2note_bin_examples(data_path, filenames, skip = 1, starting_note=0, pri
             print('total_shifts_exceeded: ', shifts_exceeded)
             print('notes_lost: ', notes_lost)
     
-    return X, exceeded
+    return X
 
-def nb_data2chroma(examples, mode = 'normal'):
+def nb_data2chroma(examples, mode='normal'):
     chroma = np.empty((examples.shape[0], examples.shape[1], 12))
     for i, e in enumerate(examples):
-        # print(f'processing example {i} of {len(chroma)}')
-        if mode == 'normal':
-            chroma[i,:,:] = nb2chroma(e)
-        elif mode == 'weighted':
-            chroma[i,:,:] = nb2chroma_weighted(e)
-        elif mode == 'lowest':
-            chroma[i,:,:] = nb2lowest(e)
+        if i % 100 == 0:
+            print(f'processing example {i} of {len(chroma)}')
+        chroma[i,:,:] = nb2chroma(e, mode=mode)
     return(chroma)
 
-def nb_data2lowest(examples):
-    lowest = np.empty((examples.shape[0], examples.shape[1], 12))
+
+def oore_data2chroma(examples, mode='normal'):
+    chroma = np.empty((examples.shape[0], examples.shape[1], 12))
     for i, e in enumerate(examples):
-        # print(f'processing example {i} of {len(chroma)}')
-        lowest[i,:,:] = nb2lowest(e)
+        if i % 100 == 0:
+            print(f'processing example {i} of {len(chroma)}')
+        chroma[i,:,:] = oore2chroma(e, mode=mode)
     return(chroma)
 
 

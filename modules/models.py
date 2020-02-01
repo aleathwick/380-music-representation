@@ -66,7 +66,8 @@ def create_nbmodel(hidden_state_size = 512, seq_length = 256, batch_size=128, st
     return model
 
 
-def generate_nbmusic(model, num_generate=256, temperatures=[0.2] * 6, input_notes=[[34,0,0,3,3,16]], chroma=False):
+def generate_nbmusic(model, num_generate=256, temperatures=[0.2] * 6,
+                    input_notes=[[34,0,0,3,3,16]], chroma=False):
     # Low temperatures results in more predictable text.
     # Higher temperatures results in more surprising text.
     # Experiment to find the best setting.
@@ -113,6 +114,89 @@ def generate_nbmusic(model, num_generate=256, temperatures=[0.2] * 6, input_note
     return(notes_generated)
 
 
+def generate_nbcmusic(model, num_generate=256, temperatures=[0.2] * 6,
+                    input_notes=[[34,0,0,3,3,16]]):
+    # Low temperatures results in more predictable text.
+    # Higher temperatures results in more surprising text.
+    # Experiment to find the best setting.
+    # Number of notes to generate
+    notes_generated = []
+    input_notes = np.array(input_notes)
+
+    # Here batch size == 1
+    model.reset_states()
+
+    current_time = 0
+    note_times = np.zeros(88)
+
+
+    # prime the model with the input notes
+    for i, input_note in enumerate(input_notes[:-1]):
+        notes_generated.append(input_note)
+
+        # get empty chroma, and roll (only for one time step)
+        current_time += twinticks2sec(input_note[1], input_note[2], major_ms=600, minor_ms=10)
+        note_times[input_note[0]] = max(current_time + twinticks2sec(note[3], note[4],major_ms=600, minor_ms=20),
+                                        note_times[input_note[0]])
+        # check what notes are still sounding
+        sounding = (note_times >= current_time).astype(int)
+        # get chroma from this
+        chroma = sounding2chroma(sounding)
+        input_note.extend(chroma)
+
+        # I think I need to do this? batch size of 1...
+        input_note = tf.expand_dims(input_note, 0)
+        input_note = tf.expand_dims(input_note, 0)
+        predictions = model(input_note)
+
+
+    input_note = input_notes[-1]
+    
+    # get empty chroma, and roll (only for one time step)
+    current_time += twinticks2sec(input_note[1], input_note[2], major_ms=600, minor_ms=10)
+    note_times[input_note[0]] = max(current_time + twinticks2sec(note[3], note[4],major_ms=600, minor_ms=20),
+                                    note_times[input_note[0]])
+    # check what notes are still sounding
+    sounding = (note_times >= current_time).astype(int)
+    # get chroma from this
+    chroma = sounding2chroma(sounding)
+    input_note.extend(chroma)
+
+    # do I need to turn it into an np array?
+    # input_note = np.array(input_note)
+    input_note = tf.expand_dims(input_note, 0)
+    input_note = tf.expand_dims(input_note, 0)
+    for i in range(num_generate):
+        predictions = model(input_note)
+
+        note = []
+
+        # using a categorical distribution to predict the note returned by the model
+        # have to do this for each output attribute of the note
+        for attribute, temperature in zip(predictions, temperatures):
+            # remove the batch dimension
+            attribute = tf.squeeze(attribute, 0)
+            attribute = attribute / temperature
+            predicted_id = tf.random.categorical(attribute, num_samples=1)[-1,0].numpy()
+            note.append(predicted_id)
+
+        # We pass the predicted word as the next input to the model
+        # get empty chroma, and roll (only for one time step)
+        current_time += twinticks2sec(input_note[1], input_note[2], major_ms=600, minor_ms=10)
+        note_times[input_note[0]] = max(current_time + twinticks2sec(note[3], note[4],major_ms=600, minor_ms=20),
+                                        note_times[input_note[0]])
+        # check what notes are still sounding
+        sounding = (note_times >= current_time).astype(int)
+        # get chroma from this
+        chroma = sounding2chroma(sounding)
+        input_note.extend(chroma)
+        input_note = tf.expand_dims(tf.expand_dims(note, 0), 0)
+        
+        notes_generated.append(note)
+
+    return(notes_generated)
+
+
 def create_ooremodel(hidden_state_size = 512, seq_length = 600, batch_size=128, stateful = False,
     lstm_layers = 3, recurrent_dropout = 0.0, n_events=242, chroma=False):
     """creates a simple model
@@ -121,6 +205,7 @@ def create_ooremodel(hidden_state_size = 512, seq_length = 600, batch_size=128, 
     n_inputs -- int, describing how many inputs there are per note, after unrolling
     
     """
+
     n_inputs = 1
     if chroma:
         n_inputs += 12
@@ -132,6 +217,7 @@ def create_ooremodel(hidden_state_size = 512, seq_length = 600, batch_size=128, 
     # run through a one hot layer
     x = layers.Lambda(lambda x: tf.one_hot(tf.cast(x[:,:,0], dtype='int32'), n_events))(inputs)
     if chroma:
+        # grab inputs[1:], these are the chroma
         x1 = layers.Lambda(lambda x: x[:,:,1:])(inputs)
         x = layers.concatenate([x, x1])
 
@@ -140,14 +226,13 @@ def create_ooremodel(hidden_state_size = 512, seq_length = 600, batch_size=128, 
         x = layers.LSTM(hidden_state_size, return_sequences=True, stateful=stateful,
                         recurrent_dropout=recurrent_dropout)(x)
 
-    event_out = layers.Dense(333, activation='softmax')(x)
+    event_out = layers.Dense(n_events, activation='softmax')(x)
 
     model = tf.keras.Model(inputs=inputs, outputs=event_out, name=f'{lstm_layers}layerLSTM')
 
     model.summary()
 
     return model
-
 
 
 def generate_ooremusic(model, num_generate=256, temperature=0.2, input_events=[34,0,0,3,3,16], chroma=False):
@@ -195,21 +280,93 @@ def generate_ooremusic(model, num_generate=256, temperature=0.2, input_events=[3
     return(events_generated)
 
 
+def generate_oorecmusic(model, num_generate=256, temperature=0.2, input_events=[34,0,0,3,3,16], chroma=False):
+    # Low temperatures results in more predictable text.
+    # Higher temperatures results in more surprising text.
+    # Experiment to find the best setting.
+    # Number of notes to generate
+    events_generated = []
+    input_events = np.array(input_events)
+
+    # Here batch size == 1
+    model.reset_states()
+
+    current_time = 0
+    sounding = np.zeros(88)
+
+    # prime the model with the input notes
+    for i, input_event in enumerate(input_events[:-1]):
+        events_generated.append(input_event)
+    
+        # get empty chroma, and roll (only for one time step)
+        if input_event <= 87: # note ones
+            sounding[input_event] = 1
+        elif 88 <= input_event <= 175: # note offs
+            sounding[input_event] = 0
+        chroma = sounding2chroma(sounding) 
+        # add chroma to input note
+        input_event.extend(chroma)
+
+        # I think I need to do this? batch size of 1...
+        input_event = tf.expand_dims(input_event, 0)
+        input_event = tf.expand_dims(input_event, 0)
+        input_event = tf.expand_dims(input_event, 0)
+        predictions = model(input_event)
+
+
+    input_event = input_events[-1]
+    input_event = np.array(input_event)
+
+    # get empty chroma, and roll (only for one time step)
+    if input_event <= 87: # note ones
+        sounding[input_event] = 1
+    elif 88 <= input_event <= 175: # note offs
+        sounding[input_event] = 0
+    chroma = sounding2chroma(sounding) 
+    # add chroma to input note
+    input_event.extend(chroma)
+
+    input_event = tf.expand_dims(input_event, 0)
+    input_event = tf.expand_dims(input_event, 0)
+    input_event = tf.expand_dims(input_event, 0)
+    for i in range(num_generate):
+        prediction = model(input_event)
+
+        # using a categorical distribution to predict the note returned by the model
+        # have to do this for each output attribute of the note
+            # remove the batch dimension
+        prediction = tf.squeeze(prediction, 0)
+        prediction = prediction / temperature
+        predicted_id = tf.random.categorical(prediction, num_samples=1)[-1,0].numpy()
+
+        input_event = predicted_id
+        if input_event <= 87: # note ones
+            sounding[input_event] = 1
+        elif 88 <= input_event <= 175: # note offs
+            sounding[input_event] = 0
+        chroma = sounding2chroma(sounding)
+        # add chroma to input note
+        # might need to use concatenate here, to avoid doing it in place...
+        # ...if input event is a reference to predicted id, and will mess up my output
+        input_event.extend(chroma)
+        input_event = tf.expand_dims(tf.expand_dims(tf.expand_dims(predicted_id, 0), 0), 0)
+
+        events_generated.append(predicted_id)
+
+    return(events_generated)
+
 
 def plt_metric(history, metric='loss'):
     """plots metrics from the history of a model
-    
     Arguments:
     history -- history of a keras model
     metric -- str, metric to be plotted
     
     """
-
-    plt.plot(history.history[metric])
-    plt.plot(history.history['val_' + metric])
+    plt.plot(history[metric])
+    plt.plot(history['val_' + metric])
     plt.title('model ' + metric)
     plt.ylabel(metric)
     plt.xlabel('epoch')
     plt.legend(['train', 'val'], loc='upper left')
-    plt.show()
 

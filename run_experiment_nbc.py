@@ -7,84 +7,111 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow.keras import layers
 
+# Note to self: excellent example of recurrent model here https://www.tensorflow.org/tutorials/text/text_generation
 
+# import my modules
 from modules.midiMethods import *
-
 from modules.dataMethods import *
-
 import modules.models as models
-
 import modules.mlClasses as mlClasses
 
 
 
-
-with open('training_data/note_bin_v1/nb_256_train1.00.json', 'r') as f:
-    examples = json.load(f)
-# with open('training_data/note_bin_v1/nb_256_train0.95.json', 'r') as f:
-#     examples95 = json.load(f)
-# with open('training_data/note_bin_v1/nb_256_train1.05.json', 'r') as f:
-#     examples105 = json.load(f)
-# examples = np.concatenate((examples, examples95, examples105))
-
-with open('training_data/note_bin_v1/nb_256_val.json', 'r') as f:
-    val = json.load(f)
-
-chroma = nb_data2chroma(np.array(examples), weighted=True)
-chroma_val = nb_data2chroma(np.array(val), weighted=True)
-
-
-# build simple model
-# excellent example of recurrent model here https://www.tensorflow.org/tutorials/text/text_generation
+experiments = (5,6,7)
+# chroma modes are what I'm interested in varying at the moment. Other hyperparameters I won't have iterable right now.
+chroma_modes = ('none', 'weighted', 'lowest')
+augment_time = False
+epochs=75
 hidden_state = 512
 lstm_layers = 3
-seq_length = len(examples[0]) - 1
+lr = 0.001
+# choose what the callbacks monitor
+monitor = 'loss'
+transpose = False
+st = 0
 
-checkpoint = tf.keras.callbacks.ModelCheckpoint("models/nbcmodel3/{epoch:02d}-{val_loss:.2f}.hdf5",
-            monitor='val_loss', verbose=2, save_best_only=True, save_weights_only=True)
-stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=2)
-no = 3
+for i in range(len(experiments)):
+    chroma_mode = chroma_modes[i]
+    no = experiments[i]
 
-model2 = models.create_model1(hidden_state_size=hidden_state, lstm_layers=lstm_layers,
-                              seq_length=seq_length, recurrent_dropout=0.0, chroma=True)
-training_generator = mlClasses.DataGenerator(examples, chroma = chroma, augment=False, st = 0)
-val_gen = mlClasses.DataGenerator(val, chroma = chroma_val, augment=False)
+        # save text file with the basic parameters used
+    with open(f'models/nbc/nbcmodel{no}/description.txt', 'w') as f:
+        f.write(f'lstm_layers: {lstm_layers}\n')
+        f.write(f'chroma_mode: {chroma_mode}\n')
+        f.write(f'augment_time: {augment_time}\n')
+        f.write(f'epochs: {epochs}\n')
+        f.write(f'hidden_state: {hidden_state}\n')
+        f.write(f'learning rate: {lr}\n')
+        f.write(f'transpose: {transpose}\n')
+        f.write(f'st: {st}\n')
 
-opt = tf.keras.optimizers.Adam(learning_rate=0.003)
-model2.compile(optimizer=opt, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-# checkpoint = tf.keras.callbacks.ModelCheckpoint("weights/model1/{epoch:02d}-{train_loss:.2f}.hdf5", monitor='train_loss', verbose=2, save_best_only=True, save_weights_only=True)
-epochs=40
-history = model2.fit_generator(training_generator, validation_data=val_gen, epochs=epochs,
-        callbacks=[checkpoint, stop])
-model2.save_weights(f'models/nbcmodel{no}/model{no}{epochs}e{hidden_state}ss{lstm_layers}l.h5')
-with open(f'models/nbcmodel{no}/history{epochs}e.json', 'w') as f:
-    json.dump(str(history.history), f)
+    with open('training_data/note_bin_v2/nb_220_train1.json', 'r') as f:
+        examples = json.load(f)
+    
+    with open('training_data/note_bin_v2/nb_220_val.json', 'r') as f:
+        val = json.load(f)
+
+    if chroma_mode != 'none':
+        with open(f'training_data/note_bin_v2/nb_220_train1_chroma{chroma_mode}.json', 'r') as f:
+            chroma = json.load(f)               
+
+        with open(f'training_data/note_bin_v2/nb_220_val_chroma{chroma_mode}.json', 'r') as f:
+            chroma_val = json.load(f)
+    
+
+    # if required, add in data for other speeds (assuming 0.9 and 1.1 speeds are going to be added)
+    if augment_time:
+        with open('training_data/note_bin_v2/nb_220_train0.9.json', 'r') as f:
+            examples9 = json.load(f)
+        with open('training_data/note_bin_v2/nb_220_train1.1.json', 'r') as f:
+            examples11 = json.load(f)
+        examples = np.concatenate((examples, examples9, examples11))
+
+        if chroma_mode != 'none':
+            with open(f'training_data/note_bin_v2/nb_220_train0.9_chroma{chroma_mode}.json', 'r') as f:
+                chroma9 = json.load(f)
+            with open(f'training_data/note_bin_v2/nb_220_train1.1_chroma{chroma_mode}.json', 'r') as f:
+                chroma11 = json.load(f)
+            chroma = np.concatenate((chroma, chroma9, chroma11))
+    
+    # if this run is without chroma, we still need to add in zeros to replace chroma, so that the same input shape is retained
+    # could be done more efficiently, in the data generator... but oh well.
+    if chroma_mode == 'none':
+        chroma = np.zeros((len(examples), len(examples[0]), 12))
+        chroma_val = np.zeros((len(val), len(examples[0]), 12))
+
+    seq_length = len(examples[0]) - 1
+
+    # set up callbacks
+    checkpoint = tf.keras.callbacks.ModelCheckpoint("models/nbc/nbcmodel" + str(no) + "/{epoch:02d}-{val_loss:.2f}.hdf5",
+                monitor=monitor, verbose=1, save_best_only=True, save_weights_only=True)
+    # early stopping, if needed
+    # stop = tf.keras.callbacks.EarlyStopping(monitor=monitor, min_delta=0, patience=5)
+    callbacks = [checkpoint]
+
+    # create model
+    model = models.create_nbmodel(hidden_state_size=hidden_state, lstm_layers=lstm_layers,
+                                seq_length=seq_length, chroma=True)
+
+    # Get data generators for train and validation
+    training_generator = mlClasses.NbDataGenerator(examples, chroma = np.array(chroma), augment=transpose, st = 5)
+    val_gen = mlClasses.NbDataGenerator(val, chroma = np.array(chroma_val), augment=False)
+
+    # optimizer, and compile model
+    opt = tf.keras.optimizers.Adam(learning_rate=lr)
+    model.compile(optimizer=opt, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+
+    # fit the model
+    history = model.fit_generator(training_generator, validation_data=val_gen, epochs=epochs,
+            callbacks=callbacks, verbose=2)
+    
+    # save the model weights and history
+    model.save_weights(f'models/nbc/nbcmodel{no}/model{no}{epochs}e{hidden_state}ss{lstm_layers}l.h5')
+    with open(f'models/nbc/nbcmodel{no}/history{epochs}e.json', 'w') as f:
+        json.dump(str(history.history), f)
+    
+    # save a graph of the training vs validation progress
+    models.plt_metric(history.history)
+    plt.savefig(f'models/nbc/nbcmodel{no}/model{no}{epochs}e{hidden_state}ss{lstm_layers}l')
 
 
-
-
-
-# # build simple model
-# # excellent example of recurrent model here https://www.tensorflow.org/tutorials/text/text_generation
-# hidden_state = 400
-# lstm_layers = 3
-# seq_length = len(examples[0]) - 1
-
-# checkpoint = tf.keras.callbacks.ModelCheckpoint("models/nbmodel8/{epoch:02d}-{val_loss:.2f}.hdf5",
-#             monitor='val_loss', verbose=2, save_best_only=True, save_weights_only=True)
-# stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=3)
-
-# model2 = models.create_model1(hidden_state_size=hidden_state, lstm_layers=lstm_layers,
-#                               seq_length=seq_length, recurrent_dropout=0.0, chroma=False)
-# training_generator = mlClasses.DataGenerator(examples, augment=True, st = 5)
-# val_gen = mlClasses.DataGenerator(val, augment=False)
-
-
-# model2.compile(optimizer='Adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-# # checkpoint = tf.keras.callbacks.ModelCheckpoint("weights/model1/{epoch:02d}-{train_loss:.2f}.hdf5", monitor='train_loss', verbose=2, save_best_only=True, save_weights_only=True)
-# epochs=40
-# history = model2.fit_generator(training_generator, validation_data=val_gen, epochs=epochs,
-#         callbacks=[checkpoint, stop])
-# model2.save_weights(f'models/nbmodel8/model8{epochs}e{hidden_state}ss{lstm_layers}l.h5')
-# with open(f'models/nbmodel8/history{epochs}e.json', 'w') as f:
-#     json.dump(str(history.history), f)

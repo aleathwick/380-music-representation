@@ -122,44 +122,50 @@ def desus(pm, cutoff = 64):
                 # or could set it to note.end. I don't know which is best. Both seem ok.
 
 
-def pm2chroma(pm):
-    '''generates chroma for each note of a pretty midi file'''
-    notes = pm.instruments[0].notes
-    chroma_times = [0] * 12
-    chroma_output = np.zeros((len(notes), 12))
-    for i, note in enumerate(pm.instruments[0].notes):
-        pitch = pitchM2pitchB(note.pitch) % 12 # C is 0
-        chroma_times[pitch] = note.off
-        for j in range(12):
-            if note.start < chroma_times[j]:
-                chroma_output[i,j] = 1
-    return chroma_output
 
 
 ######## chroma and feature augmentation ########
 
-def chroma_weighted(pm):
-    '''generates chroma weighted by pitch for each note of a pretty midi file'''
-    roll = piano_roll(pm)
-    steps = len(roll)
-    chroma_output = np.zeros((len(notes), 12))
-    for i, snapshot in enumerate(roll):
-        for j in range(87):
-            ############## check for equality like this?? ###################
-            if snapshot[j] == 1:
-                chroma_output[i,j] = 1 - j / 87
-    return chroma_output
+# methods for getting chroma for all time steps of a score
+def pm2chroma(pm, mode='normal'):
+    '''generates chroma for each note of a pretty midi file'''
+    roll = pm2roll(pm)
+    chroma = roll2chroma(roll, mode=mode)
+    
+    # # originally needed this... no longer.
+    # notes = pm.instruments[0].notes
+    # chroma_times = [0] * 12
+    # chroma_output = np.zeros((len(notes), 12))
+    # for i, note in enumerate(pm.instruments[0].notes):
+    #     pitch = pitchM2pitchB(note.pitch) % 12 # C is 0
+    #     chroma_times[pitch] = note.off
+    #     for j in range(12):
+    #         if note.start < chroma_times[j]:
+    #             chroma_output[i,j] = 1
+    return chroma
 
 
-def nb2lowest(nb):
+def nb2chroma(nb, mode='normal'):
+    '''get chroma for a note bin, either normal, weighted, or lowest only'''
     roll = nb2roll(nb)
-    roll_idx = np.where(roll == 1)
-    lowest = np.zeros((len(roll), 12))
-    for i, idx in enumerate(roll):
-        lowest[i, min(np.where(c == 1)[0]) % 12] = 1
-    return lowest
+    return roll2chroma(roll, mode=mode)
 
 
+def oore2chroma(oo, mode='normal'):
+    roll = oore2roll(oo)
+    return roll2chroma(roll, mode=mode)
+
+
+def roll2chroma(roll, mode='normal'):
+    chroma = np.zeros((len(roll), 12))
+    for i, sounding in enumerate(roll):
+        chroma[i] = sounding2chroma(sounding, mode=mode)
+    return chroma
+
+
+
+
+# methods for going to roll representation
 def pm2roll(pm):
     notes = pm.instruments[0].notes
     note_times = [0] * 88
@@ -188,22 +194,6 @@ def nb2roll(nb):
     return roll
 
 
-def nb2chroma(nb):
-    roll = nb2roll(nb)
-    return roll2chroma(roll)
-
-
-def nb2chroma_weighted(nb):
-    roll = nb2roll(nb)
-    roll_idx = np.where(roll == 1)
-    chroma = np.zeros((len(roll), 12))
-    for i, c in enumerate(roll):
-        for j in np.where(c == 1)[0]:
-            if chroma[i, j % 12] == 0:
-                chroma[i, j % 12] = 1 - j / 87
-    return chroma
-
-
 def oore2roll(oo):
     '''produces a piano roll for music in oore representation'''
     # get empty piano roll, one time step for every event
@@ -214,15 +204,28 @@ def oore2roll(oo):
         if event <= 87: # note ones
             sounding[event] = 1
         elif 88 <= event <= 175: # note offs
-            sounding[event] = 0
+            sounding[event - 88] = 0
         # update piano roll
-        roll[i] sounding
+        roll[i] = sounding
     return (roll)
+    
 
-def roll2chroma(roll):
-    chroma = np.zeros((len(roll), 12))
-    for i, sounding in enumerate(roll):
-        chroma[i, np.where(sounding == 1)[0] % 12] = 1
+# method for getting chroma from a single snapshot of sounding notes to chroma
+def sounding2chroma(sounding, mode='normal'):
+    '''get chroma for a single snapshot of sounding notes (one step of roll)'''
+    chroma = np.zeros(12)
+    if mode == 'normal':
+        chroma[np.where(sounding == 1)[0] % 12] = 1
+    elif mode == 'weighted':
+        for i in np.where(sounding == 1)[0]:
+            if chroma[i % 12] == 0:
+                chroma[i % 12] = 1 - i / 87
+    elif mode == 'lowest':
+        sounding_pitches = np.where(sounding==1)[0]
+        if len(sounding_pitches) != 0:
+            chroma[min(sounding_pitches) % 12] = 1
+    else:
+        raise ValueError('mode is not understood')
     return chroma
 
 
