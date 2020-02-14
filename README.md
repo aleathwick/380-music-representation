@@ -34,10 +34,10 @@ For more information, you are welcome to read the full report.
 
 ## Code
 The following are found in the modules folder:
--midiMethods -- Code for processing pretty midi (pm) objects, converting between pm and each of the two representations and back, and generating various kinds of chroma for each of the representations.
--dataMethods -- Code for working with data on a larger scale, e.g. converting files from a list of filenames into training examples.
--mlClasses -- Contains data generators for each representation. Of much use in figuring these out was [this blog post here](https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly) by Afshine Amidi and Shervine Amidi.
--models -- Contains the various models and code for generating sequences from models. The generation code, and sampling from the output distribution with the temperature optimized to balance between craziness and conservativeness of sequences, is inspired by a very good [tutorial on text generation in tensorflow](https://www.tensorflow.org/tutorials/text/text_generation#the_prediction_loop).
+- midiMethods: Code for processing pretty midi (pm) objects, converting between pm and each of the two representations and back, and generating various kinds of chroma for each of the representations.
+- dataMethods: Code for working with data on a larger scale, e.g. converting files from a list of filenames into training examples.
+- mlClasses: Contains data generators for each representation. Of much use in figuring these out was [this blog post here](https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly) by Afshine Amidi and Shervine Amidi.
+- models: Contains the various models and code for generating sequences from models. The generation code, and sampling from the output distribution with the temperature optimized to balance between craziness and conservativeness of sequences, is inspired by a very good [tutorial on text generation in tensorflow](https://www.tensorflow.org/tutorials/text/text_generation#the_prediction_loop).
 
 There is also a folder called obsolete, which contains code from when I first played around with performance representation, before undertaking this project. At the time, I had a poor understanding of how to use keras properly, I didn't understand it was necessary to sample from the output distribution or use beam search, and I didn't have access to a GPU. But even though I didn't successfuly generate any sequences, I learnt a huge amount.
 
