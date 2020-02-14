@@ -17,9 +17,9 @@ import modules.mlClasses as mlClasses
 
 
 
-experiments = (5,6,7)
+experiments = (23,24,25)
 # chroma modes are what I'm interested in varying at the moment. Other hyperparameters I won't have iterable right now.
-chroma_modes = ('none', 'weighted', 'lowest')
+chroma_modes = ('normal',)
 augment_time = False
 epochs=75
 hidden_state = 512
@@ -35,7 +35,8 @@ for i in range(len(experiments)):
     no = experiments[i]
 
         # save text file with the basic parameters used
-    with open(f'models/nbc/nbcmodel{no}/description.txt', 'w') as f:
+    with open(f'models/nbc/nbc{no}/description.txt', 'w') as f:
+        f.write(f'no: {no}\n')
         f.write(f'lstm_layers: {lstm_layers}\n')
         f.write(f'chroma_mode: {chroma_mode}\n')
         f.write(f'augment_time: {augment_time}\n')
@@ -83,8 +84,8 @@ for i in range(len(experiments)):
     seq_length = len(examples[0]) - 1
 
     # set up callbacks
-    checkpoint = tf.keras.callbacks.ModelCheckpoint("models/nbc/nbcmodel" + str(no) + "/{epoch:02d}-{val_loss:.2f}.hdf5",
-                monitor=monitor, verbose=1, save_best_only=True, save_weights_only=True)
+    checkpoint = tf.keras.callbacks.ModelCheckpoint("models/nbc/nbc" + str(no) + "/{epoch:02d}-{" + monitor + ":.2f}.hdf5",
+                                monitor=monitor, verbose=1, save_best_only=True, save_weights_only=True)
     # early stopping, if needed
     # stop = tf.keras.callbacks.EarlyStopping(monitor=monitor, min_delta=0, patience=5)
     callbacks = [checkpoint]
@@ -106,12 +107,12 @@ for i in range(len(experiments)):
             callbacks=callbacks, verbose=2)
     
     # save the model weights and history
-    model.save_weights(f'models/nbc/nbcmodel{no}/model{no}{epochs}e{hidden_state}ss{lstm_layers}l.h5')
-    with open(f'models/nbc/nbcmodel{no}/history{epochs}e.json', 'w') as f:
+    model.save_weights(f'models/nbc/nbc{no}/model{no}{epochs}e{hidden_state}ss{lstm_layers}l.h5')
+    with open(f'models/nbc/nbc{no}/history{epochs}e.json', 'w') as f:
         json.dump(str(history.history), f)
     
     # save a graph of the training vs validation progress
     models.plt_metric(history.history)
-    plt.savefig(f'models/nbc/nbcmodel{no}/model{no}{epochs}e{hidden_state}ss{lstm_layers}l')
-
-
+    plt.savefig(f'models/nbc/nbc{no}/model{no}{epochs}e{hidden_state}ss{lstm_layers}l')
+    # clear the output
+    plt.clf()

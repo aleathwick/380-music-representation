@@ -582,10 +582,13 @@ def twinticks2sec(major_tick, minor_tick, major_ms=600, minor_ms=10):
 
 def rebin(bin, a=128, b=32):
     """Maps from [0, a-1] to [0, b-1], useful for velocity"""
-    return round(bin * (b-1)/(a-1))
+    if bin > a:
+        print(f'Warning: input bin {bin} outside of input bin range of {a}')
+        bin = a/2
+    return round(bin * (b-1)/(a))
 
 
-def pm2note_bin(pm, M_shift_ms = 600, m_shift_ms = 10,  M_duration_ms = 600, m_duration_ms = 20, n_velocity=32):
+def pm2note_bin(pm, M_shift_ms = 600, m_shift_ms = 25,  M_duration_ms = 800, m_duration_ms = 50, n_velocity=16):
     """Maps from pretty midi file to note_bin representation
     
     Arguments:
@@ -626,7 +629,7 @@ def pm2note_bin(pm, M_shift_ms = 600, m_shift_ms = 10,  M_duration_ms = 600, m_d
     return note_bin
 
 
-def note_bin2pm(note_bin, M_shift_ms = 600, m_shift_ms = 10,  M_duration_ms = 600, m_duration_ms = 20):
+def note_bin2pm(note_bin, M_shift_ms = 600, m_shift_ms = 25,  M_duration_ms = 800, m_duration_ms = 50, n_velocity=16):
     """Performs inverse function of pm2notebin"""
 
     pm = pretty_midi.PrettyMIDI(resolution=125)
@@ -643,7 +646,7 @@ def note_bin2pm(note_bin, M_shift_ms = 600, m_shift_ms = 10,  M_duration_ms = 60
     current_time = 0
 
     for noteB in note_bin:
-        velocityM = rebin(noteB[velocity], 32, 128)
+        velocityM = rebin(noteB[velocity], n_velocity, 128)
         pitchM = pitchB2pitchM(noteB[pitch])
         current_time += twinticks2sec(noteB[shift_major], noteB[shift_minor], major_ms=M_shift_ms, minor_ms=m_shift_ms)
         duration = twinticks2sec(noteB[duration_major], noteB[duration_minor], major_ms=M_duration_ms, minor_ms=m_duration_ms)

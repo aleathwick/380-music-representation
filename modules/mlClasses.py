@@ -3,7 +3,7 @@ import tensorflow as tf
 
 class NbDataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras. This is a subclass of Sequence'
-    def __init__(self, data, chroma=[], batch_size=64, dim=(220,6), shuffle=True, augment=True, st = 4):
+    def __init__(self, data, chroma=[], batch_size=64, dim=(220,6), shuffle=True, augment=True, st = 4, epoch_per_dataset=1):
         """Initialization
         Note that data should be a list of X
         """
@@ -15,6 +15,8 @@ class NbDataGenerator(tf.keras.utils.Sequence):
         self.on_epoch_end()
         self.st = st
         self.chroma = chroma
+        # this controls epoch 
+        self.epoch_per_dataset = epoch_per_dataset
 
     def __transpose(self, X, Y):
         'Randomly transposes examples up or down by up to 3 semitones'
@@ -28,7 +30,7 @@ class NbDataGenerator(tf.keras.utils.Sequence):
 
     def __len__(self):
         'Denotes the number of batches per epoch'
-        return len(self.X_data) // self.batch_size
+        return int((len(self.X_data) / self.epoch_per_dataset) / self.batch_size)
 
     def __getitem__(self, index):
         'Generate one batch of data'
@@ -84,7 +86,7 @@ class NbDataGenerator(tf.keras.utils.Sequence):
 
 class OoreDataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras. This is a subclass of Sequence'
-    def __init__(self, data, chroma=[], batch_size=64, dim=(601,), shuffle=True, augment=True, st = 4):
+    def __init__(self, data, chroma=[], batch_size=64, dim=(601,), shuffle=True, augment=True, st = 4, epoch_per_dataset=1):
         """Initialization
         Note that data should be a list of X
         """
@@ -96,6 +98,7 @@ class OoreDataGenerator(tf.keras.utils.Sequence):
         self.on_epoch_end()
         self.st = st
         self.chroma = chroma
+        self.epoch_per_dataset = epoch_per_dataset
 
     def __transpose(self, X, Y):
         'Randomly transposes examples up or down by up to st semitones'
@@ -115,7 +118,7 @@ class OoreDataGenerator(tf.keras.utils.Sequence):
 
     def __len__(self):
         'Denotes the number of batches per epoch'
-        return len(self.X_data) // self.batch_size
+        return int((len(self.X_data) / self.epoch_per_dataset) / self.batch_size)
 
     def __getitem__(self, index):
         'Generate one batch of data'

@@ -3,10 +3,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow.keras import layers
+# {"pitch":88, "shift_M":10, "shift_m":60, "duration_M":18, "duration_m":30, "velocity":32}
 
 def create_nbmodel(hidden_state_size = 512, seq_length = 256, batch_size=128, stateful = False,
     lstm_layers = 3, kernel_reg = None, chroma=False,
-    vocab={"pitch":88, "shift_M":10, "shift_m":60, "duration_M":18, "duration_m":30, "velocity":32}):
+    vocab={"pitch":88, "shift_M":10, "shift_m":24, "duration_M":13, "duration_m":16, "velocity":16}):
     """creates a simple model
     
     Arguments:
@@ -91,6 +92,7 @@ def generate_nbmusic(model, num_generate=256, temperatures=[0.2] * 6,
     input_note = np.array(input_note)
     input_note = tf.expand_dims(input_note, 0)
     input_note = tf.expand_dims(input_note, 0)
+
     for i in range(num_generate):
         predictions = model(input_note)
 
@@ -369,4 +371,6 @@ def plt_metric(history, metric='loss'):
     plt.ylabel(metric)
     plt.xlabel('epoch')
     plt.legend(['train', 'val'], loc='upper left')
+
+
 
