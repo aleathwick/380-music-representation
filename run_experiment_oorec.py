@@ -16,28 +16,38 @@ import modules.models as models
 import modules.mlClasses as mlClasses
 
 
-# maestro = pd.read_csv('training_data/maestro-v2.0.0withPeriod.csv', index_col=0)
-# filenames = list(maestro[maestro['split'] == 'validation']['midi_filename'])
-# # filenames = list(maestro['midi_filename'])
-# data_path = 'training_data/MaestroV2.00/maestro-v2.0.0/'
+experiments = (23,24,25)
+# chroma modes are what I'm interested in varying at the moment. Other hyperparameters I won't have iterable right now.
+chroma_modes = ('normal',)
+augment_time = False
+epochs=75
+hidden_state = 512
+lstm_layers = 3
+lr = 0.001
+# choose what the callbacks monitor
+monitor = 'loss'
+transpose = False
+st = 0
+
+for i in range(len(experiments)):
+    chroma_mode = chroma_modes[i]
+    no = experiments[i]
+    
+    data_dir = 'training_data/oore_v2/'
+    # save text file with the basic parameters used
+    with open(f'models/oorec/oorec{no}/description.txt', 'w') as f:
+        f.write(f'no: {no}\n')
+        f.write(f'lstm_layers: {lstm_layers}\n')
+        f.write(f'chroma_mode: {chroma_mode}\n')
+        f.write(f'augment_time: {augment_time}\n')
+        f.write(f'epochs: {epochs}\n')
+        f.write(f'hidden_state: {hidden_state}\n')
+        f.write(f'learning rate: {lr}\n')
+        f.write(f'transpose: {transpose}\n')
+        f.write(f'st: {st}\n')
 
 
-# # for note_bin:
-# # for speed in [0.95, 1, 1.05]:
-# #     train, exceeded = files2note_bin_examples(data_path, filenames, skip=1, starting_note=128, n_notes=256, speed=speed)
-# #     with open(f'training_data/note_bin_v1/nb_256_train{speed}shift.json', 'w') as f:
-# #         json.dump(train, f)
-
-
-# # for oore, get 601 so that we can use 600 at train time:
-# for speed in [1]:
-#     X = get_processed_oore2_data(data_path, filenames, skip=1, n_events=601, speed=speed)
-#     print('examples in X: ', len(X))
-#     with open(f'training_data/oore_v2/oore2_val.json', 'w') as f:
-#         json.dump(X, f)
-
-
-data_dir = 'training_data/oore_v2/'
+    
 # load training data
 with open(data_dir + 'oore2_train_1.json', 'r') as f:
     X_train = json.load(f)
@@ -49,44 +59,74 @@ with open(data_dir + 'oore2_train_1.json', 'r') as f:
 with open(data_dir + 'oore2_val.json', 'r') as f:
     X_val = json.load(f)
 
-# load chroma
-# mode='weighted'
 
-# with open(data_dir + f'oore2_train_1_chroma{mode}.json', 'r') as f:
-#     chroma = np.array(json.load(f))
-# with open(data_dir + f'oore2_train_0.9_chroma{mode}.json', 'r') as f:
-#     chroma9 = json.load(f)
-# with open(data_dir + f'oore2_train_1.1_chroma{mode}.json', 'r') as f:
-#     chroma11 = json.load(f)
-# chroma = np.concatenate((chroma, chroma9, chroma11))
+    with open(data_dir + 'oore2_train_1.json', 'r') as f:
+        examples = json.load(f)
+    
+    with open(data_dir + 'oore2_val.json', 'r') as f:
+        val = json.load(f)
 
-# with open(data_dir + f'oore2_val_chroma{mode}.json', 'r') as f:
-#     chroma_val = np.array(json.load(f))
+    if chroma_mode != 'none':
+        with open(data_dir + f'oore2_train_1_chroma{chroma_mode}.json', 'r') as f:
+            chroma = json.load(f)               
 
-# if not using chroma, then just use zeros
-chroma = np.zeros((len(X_train), len(X_train[0]), 12))
-chroma_val = np.zeros((len(X_val), len(X_train[0]), 12))
+        with open(data_dir + f'oore2_val_chroma{chroma_mode}.json', 'r') as f:
+            chroma_val = json.load(f)
+    
 
+    # if required, add in data for other speeds (assuming 0.9 and 1.1 speeds are going to be added)
+    if augment_time:
+        with open(data_dir + 'oore2_train_0.9.json', 'r') as f:
+            examples9 = json.load(f)
+        with open(data_dir + 'oore2_train_1.1.json', 'r') as f:
+            examples11 = json.load(f)
+        examples = np.concatenate((examples, examples9, examples11))
 
+        if chroma_mode != 'none':
+            with open(data_dir + f'oore2_train_0.9_chroma{chroma_mode}.json', 'r') as f:
+                chroma9 = json.load(f)
+            with open(data_dir + f'oore2_train_1.1_chroma{chroma_mode}.json', 'r') as f:
+                chroma11 = json.load(f)
+            chroma = np.concatenate((chroma, chroma9, chroma11))
+    
+    # if this run is without chroma, we still need to add in zeros to replace chroma, so that the same input shape is retained
+    # could be done more efficiently, in the data generator... but oh well.
+    if chroma_mode == 'none':
+        chroma = np.zeros((len(examples), len(examples[0]), 12))
+        chroma_val = np.zeros((len(val), len(examples[0]), 12))
 
+    seq_length = len(examples[0]) - 1
 
-# build simple model
-# excellent example of recurrent model here https://www.tensorflow.org/tutorials/text/text_generation
-hidden_state = 512
-lstm_layers = 3
-seq_length = len(X_train[0]) - 1
-model = models.create_ooremodel(hidden_state_size=hidden_state, lstm_layers=lstm_layers,
-                              seq_length=seq_length, chroma=True)
-training_generator = mlClasses.OoreDataGenerator(X_train, chroma=chroma, augment=True, st=5)
-val_gen = mlClasses.OoreDataGenerator(X_val, chroma=chroma_val, augment=False)
+    # set up callbacks
+    checkpoint = tf.keras.callbacks.ModelCheckpoint("models/oorec/oorec" + str(no) + "/{epoch:02d}-{" + monitor + ":.2f}.hdf5",
+                                monitor=monitor, verbose=1, save_best_only=True, save_weights_only=True)
+    # early stopping, if needed
+    # stop = tf.keras.callbacks.EarlyStopping(monitor=monitor, min_delta=0, patience=5)
+    callbacks = [checkpoint]
 
+    # create model
+    model = models.create_ooremodel(hidden_state_size=hidden_state, lstm_layers=lstm_layers,
+                                seq_length=seq_length, chroma=True)
 
-# opt = tf.keras.optimizers.Adam(learning_rate=0.0002)
-model.compile(optimizer='Adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-checkpoint = tf.keras.callbacks.ModelCheckpoint("models/oore7/{epoch:02d}-{val_loss:.2f}.hdf5", monitor='val_loss', verbose=2, save_best_only=False, save_weights_only=True)
-stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=6)
-epochs=40
-history = model.fit_generator(training_generator, validation_data=val_gen, epochs=epochs, callbacks=[checkpoint, stop])
-# model.save_weights(f'models/oore2/model{epochs}e{hidden_state}ss{lstm_layers}l.h5')
-with open(f'models/oore7/history{epochs}e.json', 'w') as f:
-    json.dump(str(history.history), f)
+    # Get data generators for train and validation
+    training_generator = mlClasses.OoreDataGenerator(examples, chroma = np.array(chroma), augment=transpose, st = 5)
+    val_gen = mlClasses.OoreDataGenerator(val, chroma = np.array(chroma_val), augment=False)
+
+    # optimizer, and compile model
+    opt = tf.keras.optimizers.Adam(learning_rate=lr)
+    model.compile(optimizer=opt, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+
+    # fit the model
+    history = model.fit_generator(training_generator, validation_data=val_gen, epochs=epochs,
+            callbacks=callbacks, verbose=2)
+    
+    # save the model weights and history
+    model.save_weights(f'models/oorec/oorec{no}/model{no}{epochs}e{hidden_state}ss{lstm_layers}l.h5')
+    with open(f'models/oorec/oorec{no}/history{epochs}e.json', 'w') as f:
+        json.dump(str(history.history), f)
+    
+    # save a graph of the training vs validation progress
+    models.plt_metric(history.history)
+    plt.savefig(f'models/oorec/oorec{no}/model{no}{epochs}e{hidden_state}ss{lstm_layers}l')
+    # clear the output
+    plt.clf()
