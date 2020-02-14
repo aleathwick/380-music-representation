@@ -13,20 +13,22 @@ A note on naming confusion: The two representations used are *NoteTuple* (NT) an
 
 The original papers:
 
-PF is first introduced in depth in [*This time with feeling: Learning expressive musical performance*](https://arxiv.org/abs/1808.03715). There is an earlier paper , but it is brief.
+PF is described in depth in [*This time with feeling: Learning expressive musical performance*](https://arxiv.org/abs/1808.03715), by Oore et al..
 
-NT is introduced in [*Transformer-NADE for Piano Performances*](https://nips2018creativity.github.io/doc/Transformer_NADE.pdf)
+NT is introduced in [*Transformer-NADE for Piano Performances*](https://nips2018creativity.github.io/doc/Transformer_NADE.pdf), by Hawthorne et al..
 
 ## Notebooks & Scripts
 ### Sequence Generatioin
-Two notebooks for generating new sequences are provided, one for each of the representations. Some ready-trained weights are provided for use with the sequence generation notebooks. For some examples of generated sequences, check out [this youtube playlist](https://www.youtube.com/playlist?list=PLCO5IgjyszQvCVXG4f_JiPaQwcCvoQCpN).
+Two notebooks for generating new sequences are provided, one for each of the representations. Some ready-trained weights are provided for use with the sequence generation notebooks.
+
+For some examples of generated sequences from this project, check out [this youtube playlist](https://www.youtube.com/playlist?list=PLCO5IgjyszQvCVXG4f_JiPaQwcCvoQCpN).
 
 ### Data Making & Analysing
 A notebook is provided for creating data in each representation, starting from the raw midi files of the MAESTRO dataset.
 Also provided is the notebook I used to plot and compare models, and explore the data.
 
 ### Model Training
-Four scripts are provided for training models: one each for PF and NT with and without chroma. These scripts generate loss plots, loss history, a log file describing model and data configuration, and model weights that can be loaded later for prediction.
+Four scripts are provided for training models: one each for PF and NT with and without chroma. These scripts generate loss plots, loss history, a log file describing model and data configuration, and model weights that can be loaded later for sequence generation.
 
 ## A brief summary of my work
 In short, I found that NT is much easier to generate human like sequences with. A lot of that probably comes down to the primitive sampling method I used. PR splits up attributes of a note into separate events, whereas NT has the model predict all attributes of a note in a single timestep, thus introducing some joint modelling of probability that PR would need beam search to emulate. The inventors of PR used beam search, I did not.
