@@ -2,24 +2,28 @@ import numpy as np
 import tensorflow as tf
 
 class NbDataGenerator(tf.keras.utils.Sequence):
-    'Generates data for Keras. This is a subclass of Sequence'
+    '''NoteTuple data generator. Can transpose music on the fly, including chroma data.'''
     def __init__(self, data, chroma=[], batch_size=64, dim=(220,6), shuffle=True, augment=True, st = 4, epoch_per_dataset=1):
         """Initialization
         Note that data should be a list of X
         """
         self.X_data = data
-        self.dim = dim #the dimension of a single example
+        #the dimension of a single example
+        self.dim = dim 
         self.batch_size = batch_size
         self.shuffle = shuffle
+        # if augment is true, data will be randomly transposed
         self.augment = augment
         self.on_epoch_end()
+        # number of semitones to randomly transpose by
         self.st = st
+        # chroma data, if it has been provided
         self.chroma = chroma
         # this controls epoch 
         self.epoch_per_dataset = epoch_per_dataset
 
     def __transpose(self, X, Y):
-        'Randomly transposes examples up or down by up to 3 semitones'
+        'Randomly transposes examples up or down by up to self.st semitones'
         for i in range(len(X)):
             semitones = np.random.randint(-self.st, (self.st + 1))
             # if this goes above or below the range of the piano, just use highest or lowest note
@@ -83,25 +87,27 @@ class NbDataGenerator(tf.keras.utils.Sequence):
             np.random.shuffle(self.indexes)
     
 
-
 class OoreDataGenerator(tf.keras.utils.Sequence):
-    'Generates data for Keras. This is a subclass of Sequence'
+    'Performance Representation data generator. Can transpose music on the fly, including chroma data.'
     def __init__(self, data, chroma=[], batch_size=64, dim=(601,), shuffle=True, augment=True, st = 4, epoch_per_dataset=1):
         """Initialization
         Note that data should be a list of X
         """
         self.X_data = data
-        self.dim = dim #the dimension of a single example
+        #the dimension of a single example
+        self.dim = dim 
         self.batch_size = batch_size
         self.shuffle = shuffle
+        # if augment is true, data will be randomly transposed
         self.augment = augment
         self.on_epoch_end()
+        # number of semitones to randomly transpose by
         self.st = st
         self.chroma = chroma
         self.epoch_per_dataset = epoch_per_dataset
 
     def __transpose(self, X, Y):
-        'Randomly transposes examples up or down by up to st semitones'
+        'Randomly transposes examples up or down by up to self.st semitones'
         for i in range(len(X)):
             semitones = np.random.randint(-self.st, (self.st + 1))
             # if this goes above or below the range of the piano, just use highest or lowest note
@@ -171,11 +177,8 @@ class OoreDataGenerator(tf.keras.utils.Sequence):
             np.random.shuffle(self.indexes)
     
 
-
-
-
 class DataGenerator_onehot(tf.keras.utils.Sequence):
-    'Generates data for Keras'
+    'Generates data for a model expecting one hot input in performance representation'
     def __init__(self, data, batch_size=8, dim=(256,333), n_channels=1,
                  n_classes=333, shuffle=True):
         """Initialization
@@ -231,7 +234,10 @@ class DataGenerator_onehot(tf.keras.utils.Sequence):
 
         return X, Y.transpose(1,0,2)
 
-class MySequence(tf.keras.utils.Sequence): # https://stackoverflow.com/questions/51057123/keras-one-hot-encoding-memory-management-best-possible-way-out
+
+# very simple example of data generator
+# taken from here: https://stackoverflow.com/questions/51057123/keras-one-hot-encoding-memory-management-best-possible-way-out
+class MySequence(tf.keras.utils.Sequence): 
   def __init__(self, data, batch_size = 16):
     self.X = data[0]
     self.Y = data[1]
@@ -244,37 +250,3 @@ class MySequence(tf.keras.utils.Sequence): # https://stackoverflow.com/questions
     # Get corresponding batch data...
     # one-hot encode
     return X, Y
-
-
-################# then the keras script looks like so: #################
-
-# import numpy as np
-
-# from keras.models import Sequential
-# from my_classes import DataGenerator
-
-# # Parameters
-# params = {'dim': (32,32,32),
-#           'batch_size': 64,
-#           'n_classes': 6,
-#           'n_channels': 1,
-#           'shuffle': True}
-
-# # Datasets
-# partition = # IDs
-# labels = # Labels
-
-# # Generators
-# training_generator = DataGenerator(partition['train'], labels, **params)
-# validation_generator = DataGenerator(partition['validation'], labels, **params)
-
-# # Design model
-# model = Sequential()
-# [...] # Architecture
-# model.compile()
-
-# # Train model on dataset
-# model.fit_generator(generator=training_generator,
-#                     validation_data=validation_generator,
-#                     use_multiprocessing=True,
-#                     workers=6)
