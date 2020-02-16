@@ -1,0 +1,7 @@
+lstm_layers: 3
+augment_time: False
+epochs: 99
+hidden_state: 512
+learning rate: 0.001
+transpose: False
+st: 0

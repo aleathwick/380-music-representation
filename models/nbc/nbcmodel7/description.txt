@@ -1,0 +1,9 @@
+no: 7
+lstm_layers: 3
+chroma_mode: lowest
+augment_time: False
+epochs: 75
+hidden_state: 512
+learning rate: 0.001
+transpose: False
+st: 0
