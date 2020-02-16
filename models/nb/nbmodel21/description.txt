@@ -1,0 +1,10 @@
+no: 21
+lstm_layers: 3
+augment_time: True
+epochs: 33
+hidden_state: 512
+learning rate: 0.001
+transpose: True
+st: 5
+Note: this model is a bit weird. Looks like the model shape is still assuming the same amount of bins as for the old nb representation.
+But it is good for comparison with model 22, which was trained in the same way.
