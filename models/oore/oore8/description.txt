@@ -1,0 +1,5 @@
+This model was trained before automatic model descriptions were set up.
+learning rate: default
+data augmentation: transposition and time
+hidden state size: 512
+layers: 3
