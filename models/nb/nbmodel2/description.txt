@@ -1,1 +1,5 @@
-This appears to be the first model I got decent sequences from.
+This is the first model I got decent sequences from.
+Unfortunately I didn't have a good experimental setup at this point, so the training history and model setup was not automatically saved.
+layers: 3
+hidden state size: 512
+augmentation: none
