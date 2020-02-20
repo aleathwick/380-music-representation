@@ -1,6 +1,6 @@
 # 380-music-representation
 ## Introduction
-This repository contains the code used for my undergradute computer science project (COMPSCI-380) which was part of my studies at the University of Auckland.
+This repository contains the code used for my undergradute computer science project (COMPSCI-380), which was part of my studies at the University of Auckland.
 
 In this project, I look at two ways of representing piano music from the deep learning literature, train models and generate sequences using each of these representations, and experiment with the introduction of chroma, a succinct musical descriptor that could possibly help a model better abstract to higher level features.
 
